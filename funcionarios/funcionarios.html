@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seleção de Funcionário</title>
+  <style>
+    body {
+      width: 100vw;
+      height: 100vh;
+      font-family: 'Arial', sans-serif;
+      background-color: #f2f4f7;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    .container {
+      width: 80%;
+      max-width: 900px;
+      padding: 40px;
+      background-color: white;
+      border-radius: 15px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #333;
+      margin-bottom: 30px;
+    }
+
+    .tabs {
+      display: flex;
+      justify-content: space-around;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .tab-button {
+      padding: 20px 40px;
+      font-size: 18px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      width: 180px;
+    }
+
+    .tab-button:hover {
+      background-color: #45a049;
+      transform: scale(1.05);
+    }
+
+    .tab-button:disabled {
+      background-color: #ddd;
+      cursor: not-allowed;
+    }
+
+    /* Efeito de transição suave ao carregar */
+    body, .container {
+      opacity: 0;
+      animation: fadeIn 1s forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Selecione o Funcionário</h1>
+
+    <!-- Menu de seleção de funcionários -->
+    <div class="tabs">
+      <button class="tab-button" id="funcionario1">Funcionário 1</button>
+      <button class="tab-button" id="funcionario2">Funcionário 2</button>
+      <button class="tab-button" id="funcionario3">Funcionário 3</button>
+      <button class="tab-button" id="funcionario4">Funcionário 4</button>
+    </div>
+  </div>
+
+  <script type="module">
+    // Importar Firebase e Firestore
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore.js";
+
+    // Configuração do Firebase (substitua com as suas credenciais)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAu1yGt5pSj8Sm6L1DSZCe3p92hOoPH8Qw",
+      authDomain: "newkds-54a3d.firebaseapp.com",
+      projectId: "newkds-54a3d",
+      storageBucket: "newkds-54a3d.firebasestorage.app",
+      messagingSenderId: "87279752281",
+      appId: "1:87279752281:web:80ed11fbc19c4c872b4d48"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Referências aos documentos de status dos funcionários
+    const funcionarioRefs = {
+      funcionario1: doc(db, "funcionarios", "funcionario1"),
+      funcionario2: doc(db, "funcionarios", "funcionario2"),
+      funcionario3: doc(db, "funcionarios", "funcionario3"),
+      funcionario4: doc(db, "funcionarios", "funcionario4")
+    };
+
+    // Função para verificar o estado do funcionário e redirecionar
+    async function verificarFuncionario(funcionarioId) {
+      const docSnap = await getDoc(funcionarioRefs[funcionarioId]);
+
+      if (docSnap.exists() && docSnap.data().aberto) {
+        // Redirecionar para a página do funcionário
+        window.location.href = `${funcionarioId}.html`; // Caminho para a página do funcionário
+      } else {
+        // Exibir uma mensagem de alerta
+        alert(`Este funcionário está fechado e não pode ser selecionado no momento.`);
+      }
+    }
+
+    // Eventos de clique nos botões de funcionários
+    document.getElementById("funcionario1").addEventListener("click", function() {
+      verificarFuncionario("funcionario1");
+    });
+
+    document.getElementById("funcionario2").addEventListener("click", function() {
+      verificarFuncionario("funcionario2");
+    });
+
+    document.getElementById("funcionario3").addEventListener("click", function() {
+      verificarFuncionario("funcionario3");
+    });
+
+    document.getElementById("funcionario4").addEventListener("click", function() {
+      verificarFuncionario("funcionario4");
+    });
+  </script>
+</body>
+</html>
