@@ -123,7 +123,7 @@ async function buscarDetalhesDoPedido(orderId) {
 // Função para enviar o pedido como "pronto" para a API
 async function finalizarPedido(orderId) {
 
-    const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2N2FmMzZjMzQwZGM5ODAwMTIzMDg2YTEifQ.vahp69o66vXX6Ya9PXZ7_IW62rHHgFg6l5cdD799Mrg'; // Token da API
+    const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'; // Token da API
     const url = `https://api-parceiros.anota.ai/partnerauth/order/ready/${orderId}`;
 
     const pedidosNovosRef = collection(db, "pedidosNovos");
