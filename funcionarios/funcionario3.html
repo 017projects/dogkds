@@ -157,30 +157,6 @@ async function finalizarPedido(orderId) {
     }
 
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `${token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({})  // Corpo da requisição, se necessário. Caso não tenha nada a enviar, pode ser vazio
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            console.log("Pedido finalizado:", data);  // Log da resposta da API
-            alert("Pedido finalizado com sucesso!");  // Notificação ao usuário
-        } else {
-            console.error("Erro ao finalizar o pedido:", response.status, response.statusText);
-            alert("Erro ao finalizar o pedido. Tente novamente.");
-        }
-    } catch (error) {
-        console.error("Erro ao chamar a API:", error);
-        alert("Erro ao finalizar o pedido. Tente novamente.");
-    }
-
     updateFuncionario();
 
     setTimeout(() => {
