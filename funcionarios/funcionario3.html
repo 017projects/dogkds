@@ -203,7 +203,7 @@ async function exibirDetalhesDoPedido(detalhesPedido) {
     const { shortReference, items, observation } = detalhesPedido.info;
 
     // Lista de palavras-chave para identificar refrigerantes
-   const itensOcultos = ["refrigerante", "coca-cola", "guaraná", "fanta", "sprite", "guarana", "itubaina", "h2o", 'sukita', 'schweppes', 'agua', 'chocolate', 'honey'];
+   const itensOcultos = ["refrigerante", 'coca', "coca-cola", "guaraná", "fanta", "sprite", "guarana", "itubaina", "h2o", 'sukita', 'schweppes', 'agua', 'chocolate', 'honey'];
 
     // Filtra os itens que não devem ser exibidos
     const itensFiltrados = items.filter(item => 
