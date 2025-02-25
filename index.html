@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos - Lanchonete</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .pedido-card {
+            background: #fff;
+            border-left: 5px solid #f1a635;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .pedido-card h3 {
+            margin: 0 0 10px;
+            color: #f1a635;
+        }
+        .pedido-itens ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .pedido-itens li {
+            padding: 5px 0;
+        }
+        .pedido-itens li:last-child {
+            border-bottom: none;
+        }
+    </style>
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pedidos</h1>
+        <div id="pedidos-container">Carregando pedidos...</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAu1yGt5pSj8Sm6L1DSZCe3p92hOoPH8Qw",
+            authDomain: "newkds-54a3d.firebaseapp.com",
+            projectId: "newkds-54a3d",
+            storageBucket: "newkds-54a3d.firebasestorage.app",
+            messagingSenderId: "87279752281",
+            appId: "1:87279752281:web:80ed11fbc19c4c872b4d48"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+
+        async function atualizarContagemFuncionarios() {
+    try {
+        const funcionariosRef = collection(db, "funcionarios");
+        const snapshot = await getDocs(funcionariosRef);
+
+        let countAbertos = 0;
+        let countLivres = 0;
+
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.aberto === true) countAbertos++;
+            if (data.funcionarioLivre === true) countLivres++;
+        });
+
+        // Agora os documentos ficam dentro de uma coleção chamada "config"
+        await setDoc(doc(db, "config", "funcionariosAbertos"), { total: countAbertos });
+        await setDoc(doc(db, "config", "funcionariosLivres"), { total: countLivres });
+
+        console.log(`Funcionários abertos: ${countAbertos}`);
+        console.log(`Funcionários livres: ${countLivres}`);
+    } catch (error) {
+        console.error("Erro ao atualizar a contagem de funcionários:", error);
+    }
+}
+
+
+
+        const API_URL = 'https://api-parceiros.anota.ai/partnerauth/ping/list';
+        const API_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c';
+
+        async function buscarPedidos() {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `${API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const pedidos = await response.json();
+                console.log('Resposta da API (Pedidos):', pedidos);
+                
+                // Agora, vamos limpar a coleção antes de inserir novos pedidos
+                limparEEnviarPedidosParaFirestore(pedidos);
+            } catch (error) {
+                console.error('Erro ao buscar pedidos:', error);
+            }
+        }
+
+        async function limparEEnviarPedidosParaFirestore(pedidos) {
+    const pedidosRef = collection(db, "pedidosNovos");
+
+    const listaPedidos = pedidos.info.docs || [];
+    const pedidosAtivos = listaPedidos.filter(pedido => pedido.check === 1);
+
+    const detalhesPedidos = await Promise.all(pedidosAtivos.map(async pedido => {
+        const detalhes = await buscarDetalhesPedido(pedido._id);
+        return detalhes ? { ...pedido, detalhes } : null;
+    }));
+
+    const pedidosComDetalhes = detalhesPedidos.filter(pedido => pedido !== null);
+    pedidosComDetalhes.sort((a, b) => Number(b.detalhes.shortReference) - Number(a.detalhes.shortReference));
+
+    // Inserir os novos pedidos no Firestore sem apagar os antigos
+    for (const pedido of pedidosComDetalhes) {
+        const pedidoRef = doc(db, "pedidosNovos", pedido.detalhes.shortReference.toString());
+        await setDoc(pedidoRef, {
+            statusDoPedido: 1,
+            id: pedido.detalhes.id,
+            funcionarioAT: 0,
+        }, { merge: true }); // Usa merge para não substituir pedidos antigos
+    }
+
+    console.log("Novos pedidos foram adicionados ao Firestore sem apagar os antigos!");
+}
+
+        async function buscarDetalhesPedido(orderId) {
+            const API_URL_DETALHES = `https://api-parceiros.anota.ai/partnerauth/ping/get/${orderId}`;
+            try {
+                const response = await fetch(API_URL_DETALHES, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `${API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const dadosPedido = await response.json();
+                console.log('Resposta da API (Detalhes do Pedido):', dadosPedido);
+
+                return dadosPedido.success ? dadosPedido.info : null;
+            } catch (error) {
+                console.error('Erro ao buscar detalhes do pedido:', error);
+                return null;
+            }
+        }
+
+        async function exibirPedidosDetalhados() {
+    const pedidosRef = collection(db, "pedidosNovos");
+    const snapshot = await getDocs(pedidosRef);
+    const pedidosContainer = document.getElementById("pedidos-container");
+
+    if (snapshot.empty) {
+        pedidosContainer.innerHTML = "<p>Nenhum pedido encontrado.</p>";
+        return;
+    }
+
+    pedidosContainer.innerHTML = "";
+
+    snapshot.forEach(async (docSnap) => {
+        const pedido = docSnap.data();
+
+        if (pedido.statusDoPedido === 1) {
+            const detalhesPedido = await buscarDetalhesPedido(pedido.id);
+
+            if (detalhesPedido) {
+                const pedidoDiv = document.createElement("div");
+                pedidoDiv.classList.add("pedido-card");
+
+                const listaItens = detalhesPedido.items.map(item => {
+                    let subItemsHtml = "";
+
+                    if (item.subItems && item.subItems.length > 0) {
+                        subItemsHtml = `
+                            <ul class="subitem">
+                                ${item.subItems.map(sub => `<li>${sub.quantity}x ${sub.name}</li>`).join("")}
+                            </ul>
+                        `;
+                    }
+
+                    return `<li>${item.quantity}x ${item.name} ${subItemsHtml}</li> 
+                    ${item.observation ? `<br/><b>Observação:</b> ${item.observation} <hr/>` : `<hr/>`}`;
+                }).join("");
+
+                pedidoDiv.innerHTML = `
+                    <h3>Pedido #${detalhesPedido.shortReference}</h3>
+                    <div class="pedido-itens">
+                        <ul>${listaItens}</ul>
+                    </div>
+                    <p><strong>Status:</strong> ${pedido.jaDistribuido ? 'Em produção 🧑‍🍳' : 'Aguardando 🕒'}</p>
+                    ${detalhesPedido.observation ? `<p><b>Observação adicional:</b> ${detalhesPedido.observation}</p>` : ''}
+                `;
+                pedidosContainer.appendChild(pedidoDiv);
+
+                if (pedido.jaDistribuido === true) {
+    pedidoDiv.querySelector('h3').style.color = 'green';
+    pedidoDiv.style.borderColor = 'green';
+}
+            }
+        }
+    });
+}
+
+
+        async function distribuirPedidos() {
+    const funcionariosRef = collection(db, "funcionarios");
+    const pedidosRef = collection(db, "pedidosNovos");
+    const configDocRef = doc(db, "config", "funcionariosLivres");
+
+    try {
+        const configSnap = await getDoc(configDocRef);
+        if (!configSnap.exists()) {
+            console.error("Configuração de funcionários livres não encontrada.");
+            return;
+        }
+
+        let funcionariosLivres = configSnap.data().total || 0;
+        if (funcionariosLivres === 0) {
+            console.log("Nenhum funcionário livre para atribuir pedidos.");
+            return;
+        }
+
+        const funcionariosSnap = await getDocs(query(funcionariosRef, where("funcionarioLivre", "==", true)));
+        let funcionarios = funcionariosSnap.docs.map(doc => ({
+            id: doc.id,
+            nome: doc.data().nome,
+            livreDesde: converterStringParaData(doc.data().livreDesde)
+        }));
+
+        funcionarios.sort((a, b) => a.livreDesde - b.livreDesde);
+
+        if (funcionarios.length === 0) {
+            console.log("Nenhum funcionário disponível.");
+            return;
+        }
+
+        const pedidosSnap = await getDocs(query(pedidosRef));
+        let pedidos = pedidosSnap.docs.map(doc => ({
+            id: doc.id,
+            shortReference: doc.data().id,
+            produtoId: doc.data().id
+        }));
+
+        if (pedidos.length === 0) {
+            console.log("Nenhum pedido novo encontrado.");
+            return;
+        }
+
+        const batch = writeBatch(db);
+
+        let pedidosIndex = 0;
+        for (let i = 0; i < funcionarios.length; i++) {
+            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
+
+            let pedido = pedidos[pedidosIndex];
+            let pedidoRef = doc(db, "pedidosNovos", pedido.id);
+            let pedidoSnapshot = await getDoc(pedidoRef);
+
+            if (!pedidoSnapshot.exists() || pedidoSnapshot.data().jaDistribuido) {
+                console.warn(`Pedido ${pedido.id} já foi distribuído. Pulando...`);
+                pedidosIndex++; // Pula para o próximo pedido
+                i--; // Garante que o funcionário tente o próximo pedido
+                continue;
+            }
+
+            let funcionario = funcionarios[i];
+
+            batch.update(pedidoRef, {
+                funcionarioAT: funcionario.id,
+                statusDoPedido: 2,
+                jaDistribuido: true
+            });
+
+            batch.update(doc(db, "funcionarios", funcionario.id), {
+                funcionarioLivre: false,
+                produtoId: pedido.produtoId,
+                livreDesde: null
+            });
+
+            console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
+
+            pedidosIndex++; // Passa para o próximo pedido
+        }
+
+        await batch.commit();
+        console.log("Distribuição de pedidos concluída!");
+
+    } catch (error) {
+        console.error("Erro ao distribuir pedidos:", error);
+    }
+}
+
+
+// Converte "DD/MM/YYYY - HH:MM:SS" para Date
+function converterStringParaData(dataString) {
+    if (!dataString) return new Date(0);
+    const [data, hora] = dataString.split(" - ");
+    const [dia, mes, ano] = data.split("/").map(Number);
+    const [horas, minutos, segundos] = hora.split(":").map(Number);
+    return new Date(ano, mes - 1, dia, horas, minutos, segundos);
+}
+
+async function iniciarProcesso() {
+    await atualizarContagemFuncionarios();
+    await buscarPedidos(); // Aguarda buscar os pedidos antes de distribuir
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Pequeno delay para garantir que o Firestore processou os dados
+    await distribuirPedidos(); // Agora distribui os pedidos corretamente
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Pequeno delay para garantir a atualização do Firestore
+    await exibirPedidosDetalhados(); // Exibe os pedidos corretamente já distribuídos
+}
+
+iniciarProcesso();
+
+setInterval(() => {
+
+    async function iniciarProcesso() {
+    await atualizarContagemFuncionarios();
+    await buscarPedidos(); // Aguarda buscar os pedidos antes de distribuir
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Pequeno delay para garantir que o Firestore processou os dados
+    await distribuirPedidos(); // Agora distribui os pedidos corretamente
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Pequeno delay para garantir a atualização do Firestore
+    await exibirPedidosDetalhados(); // Exibe os pedidos corretamente já distribuídos
+}
+
+iniciarProcesso();
+    
+}, 15000);
+
+
+
+
+
+
+
+    </script>
+</body>
+</html>
