@@ -61,7 +61,7 @@
             console.error("Nenhum ID de pedido encontrado para o funcionário.");
             setTimeout(() => {
               window.location.reload();
-            }, 15000);
+            }, 5000);
             return;
         }
 
@@ -211,25 +211,29 @@ async function exibirDetalhesDoPedido(detalhesPedido) {
     );
 
     // Atualiza a div com os detalhes do pedido
-    pedidoContainer.innerHTML = `
+     pedidoContainer.innerHTML = `
     <p><strong>Pedido #${shortReference}</strong></p>
     <p><strong>Itens:</strong></p>
     <ul>
         ${itensFiltrados.map((item, index) => `
-            <li class="item">
-                <span>${item.quantity}x ${item.name}</span>
-                <input type="checkbox" id="item-${index}" class="item-checkbox">
-                ${Array.isArray(item.subItems) && item.subItems.length > 0 ? `
-                    <ul class="subitem-list">
-                        ${item.subItems.map(subItem => `
+            ${Array.from({ length: item.quantity }).map((_, i) => `
+                <li class="item">
+                    <span>1x ${item.name}</span>
+                    <input type="checkbox" id="item-${index}-${i}" class="item-checkbox">
+                </li>
+            `).join('')}
+            ${Array.isArray(item.subItems) && item.subItems.length > 0 ? `
+                <ul class="subitem-list">
+                    ${item.subItems.map(subItem => `
+                        ${Array.from({ length: subItem.quantity }).map(() => `
                             <li class="subitem">
-                                ${subItem.quantity}x ${subItem.name}
+                                1x ${subItem.name}
                             </li>
                         `).join('')}
-                    </ul>
-                ` : 'Sem pedidos encontrados'}
-                ${item.observation ? `<p class="item-observacao"><strong>Observação:</strong> ${item.observation}</p>` : ''}
-            </li>
+                    `).join('')}
+                </ul>
+            ` : ''}
+            ${item.observation ? `<p class="item-observacao"><strong>Observação:</strong> ${item.observation}</p>` : ''}
             <hr>
         `).join('')}
     </ul>
