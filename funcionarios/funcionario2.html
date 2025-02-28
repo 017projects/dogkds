@@ -219,21 +219,23 @@ async function exibirDetalhesDoPedido(detalhesPedido) {
                 <li class="item">
                     <span>1x ${item.name}</span>
                     <input type="checkbox" id="item-${index}-${i}" class="item-checkbox">
+                    
+                    ${Array.isArray(item.subItems) && item.subItems.length > 0 ? `
+                        <ul class="subitem-list">
+                            ${item.subItems.map(subItem => `
+                                ${Array.from({ length: subItem.quantity }).map(() => `
+                                    <li class="subitem">
+                                        1x ${subItem.name}
+                                    </li>
+                                `).join('')}
+                            `).join('')}
+                        </ul>
+                    ` : ''}
+
+                    ${item.observation ? `<p class="item-observacao"><strong>Observação:</strong> ${item.observation}</p>` : ''}
                 </li>
+                <hr>
             `).join('')}
-            ${Array.isArray(item.subItems) && item.subItems.length > 0 ? `
-                <ul class="subitem-list">
-                    ${item.subItems.map(subItem => `
-                        ${Array.from({ length: subItem.quantity }).map(() => `
-                            <li class="subitem">
-                                1x ${subItem.name}
-                            </li>
-                        `).join('')}
-                    `).join('')}
-                </ul>
-            ` : ''}
-            ${item.observation ? `<p class="item-observacao"><strong>Observação:</strong> ${item.observation}</p>` : ''}
-            <hr>
         `).join('')}
     </ul>
     ${observation ? `<p class="observacao"><strong>Observação Geral:</strong> ${observation}</p>` : ''}`;
