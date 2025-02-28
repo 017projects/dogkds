@@ -264,7 +264,8 @@
         let pedidos = pedidosSnap.docs.map(doc => ({
             id: doc.id,
             shortReference: doc.data().id,
-            produtoId: doc.data().id
+            produtoId: doc.data().id,
+            jaDistribuido: doc.data().jaDistribuido || false
         }));
 
         if (pedidos.length === 0) {
@@ -278,19 +279,18 @@
         for (let i = 0; i < funcionarios.length; i++) {
             if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
 
-            let pedido = pedidos[pedidosIndex];
-            let pedidoRef = doc(db, "pedidosNovos", pedido.id);
-            let pedidoSnapshot = await getDoc(pedidoRef);
-
-            if (!pedidoSnapshot.exists() || pedidoSnapshot.data().jaDistribuido) {
-                console.warn(`Pedido ${pedido.id} já foi distribuído. Pulando...`);
-                pedidosIndex++; // Pula para o próximo pedido
-                i--; // Garante que o funcionário tente o próximo pedido
-                continue;
-            }
-
             let funcionario = funcionarios[i];
 
+            while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
+                pedidosIndex++; // Pula pedidos já distribuídos
+            }
+
+            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
+
+            let pedido = pedidos[pedidosIndex];
+            let pedidoRef = doc(db, "pedidosNovos", pedido.id);
+
+            // Atribui o pedido ao funcionário
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
                 statusDoPedido: 2,
