@@ -1,60 +1,63 @@
-/* Resetando margens e preenchimentos */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* Reset básico */
 body {
   font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  flex-direction: column;
 }
 
+/* Container principal */
 .container {
-  padding: 20px;
+  width: 90%;
   max-width: 1200px;
-  margin: 0 auto;
-}
-
-h1 {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   text-align: center;
-  margin-bottom: 20px;
+  margin: 20px;
 }
 
-/* Ajustes para os cards */
+/* Grid de funcionários */
 .cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
   margin-top: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsivo para dispositivos menores */
 }
 
+/* Estilo dos cards */
 .card {
-  border: 1px solid #ddd;
+  background: white;
   padding: 20px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  transition: transform 0.2s ease-in-out;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  transition: transform 0.3s ease-in-out;
 }
 
 .card:hover {
-  transform: scale(1.05);
+  transform: translateY(-5px);
 }
 
+/* Nome do funcionário */
 .card h3 {
-  text-align: center;
+  margin-bottom: 10px;
 }
 
-.pedido {
-  margin-top: 10px;
-  text-align: center;
-}
-
+/* Botão switch estilizado */
 .switch {
   position: relative;
   display: inline-block;
-  width: 60px;
-  height: 34px;
-  margin-top: 20px;
+  width: 50px;
+  height: 26px;
+  margin-top: 10px;
 }
 
 .switch input {
@@ -78,46 +81,99 @@ h1 {
 .slider:before {
   position: absolute;
   content: "";
-  height: 26px;
-  width: 26px;
-  border-radius: 50%;
+  height: 18px;
+  width: 18px;
   left: 4px;
   bottom: 4px;
   background-color: white;
   transition: 0.4s;
+  border-radius: 50%;
 }
 
 input:checked + .slider {
-  background-color: #4caf50;
+  background-color: #4CAF50;
 }
 
 input:checked + .slider:before {
-  transform: translateX(26px);
+  transform: translateX(24px);
 }
 
-/* Responsividade para dispositivos móveis */
-@media screen and (max-width: 1024px) {
-  .cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
+/* Pedido atribuído */
+.pedido {
+  margin-top: 15px;
+  font-size: 14px;
+  background: #f8f8f8;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-align: left;
 }
 
-@media screen and (max-width: 600px) {
+.pedido p:first-child {
+  text-align: center;
+}
+
+.fechado {
+  background-color: rgb(243, 60, 60);
+}
+
+/* Media Queries para dispositivos menores */
+@media (max-width: 1024px) { /* Ajustes para tablets em modo paisagem */
+  body {
+    padding: 20px;
+  }
+
+  .container {
+    padding: 10px;
+  }
+
   .cards {
-    grid-template-columns: 1fr;
-  }
-
-  .switch {
-    width: 50px;
-    height: 30px;
-  }
-
-  .slider:before {
-    height: 20px;
-    width: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Aumenta o número de cards por linha */
   }
 
   .card {
     padding: 15px;
+  }
+
+  .pedido {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) { /* Ajustes para tablets em modo retrato */
+  body {
+    padding: 20px;
+  }
+
+  .container {
+    padding: 10px;
+  }
+
+  .cards {
+    grid-template-columns: 1fr; /* Um único card por linha */
+  }
+
+  .card {
+    padding: 15px;
+  }
+
+  .pedido {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .switch {
+    width: 40px;
+    height: 22px;
+  }
+
+  .slider:before {
+    width: 14px;
+    height: 14px;
+  }
+
+  .pedido {
+    font-size: 12px;
   }
 }
