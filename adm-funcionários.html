@@ -116,6 +116,8 @@ async function buscarPedidoFuncionario(funcionarioId) {
   const url = `https://api-parceiros.anota.ai/partnerauth/ping/get/${orderId}`;
   const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'
 
+  const sandboxToken = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2N2FmMzZjMzQwZGM5ODAwMTIzMDg2YTEifQ.vahp69o66vXX6Ya9PXZ7_IW62rHHgFg6l5cdD799Mrg'
+
   try {
     const response = await fetch(url, {
             method: 'GET',
@@ -289,11 +291,6 @@ async function exibirDetalhesPedido(funcionarioId) {
 
     inciarProcesso();
 
-    setInterval(() => {
-
-      inciarProcesso();
-      
-    }, 5000);
   </script>
 </body>
 </html>

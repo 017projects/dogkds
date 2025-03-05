@@ -101,6 +101,8 @@
         const API_URL = 'https://api-parceiros.anota.ai/partnerauth/ping/list';
         const API_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c';
 
+        const sandboxToken = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2N2FmMzZjMzQwZGM5ODAwMTIzMDg2YTEifQ.vahp69o66vXX6Ya9PXZ7_IW62rHHgFg6l5cdD799Mrg'
+
         async function buscarPedidos() {
             try {
                 const response = await fetch(API_URL, {
@@ -336,21 +338,6 @@ async function iniciarProcesso() {
 }
 
 iniciarProcesso();
-
-setInterval(() => {
-
-    async function iniciarProcesso() {
-    await atualizarContagemFuncionarios();
-    await buscarPedidos(); // Aguarda buscar os pedidos antes de distribuir
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Pequeno delay para garantir que o Firestore processou os dados
-    await distribuirPedidos(); // Agora distribui os pedidos corretamente
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Pequeno delay para garantir a atualização do Firestore
-    await exibirPedidosDetalhados(); // Exibe os pedidos corretamente já distribuídos
-}
-
-iniciarProcesso();
-    
-}, 5000);
 
 
 

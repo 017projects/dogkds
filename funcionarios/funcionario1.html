@@ -21,7 +21,7 @@
   <script type="module">
     // Importa e inicializa o Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     
     // Configuração do Firebase
     const firebaseConfig = {
@@ -99,6 +99,9 @@ async function updateFuncionario() {
     // Função para buscar os detalhes do pedido através da API
 async function buscarDetalhesDoPedido(orderId) {
     const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'; // Token da API
+
+    const sandboxToken = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2N2FmMzZjMzQwZGM5ODAwMTIzMDg2YTEifQ.vahp69o66vXX6Ya9PXZ7_IW62rHHgFg6l5cdD799Mrg'
+
     const url = `https://api-parceiros.anota.ai/partnerauth/ping/get/${orderId}`;
     
     try {
@@ -127,35 +130,53 @@ async function buscarDetalhesDoPedido(orderId) {
 
 // Função para enviar o pedido como "pronto" para a API
 async function finalizarPedido(orderId) {
-
     const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'; // Token da API
+
+    const sandboxToken = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2N2FmMzZjMzQwZGM5ODAwMTIzMDg2YTEifQ.vahp69o66vXX6Ya9PXZ7_IW62rHHgFg6l5cdD799Mrg'
+
     const url = `https://api-parceiros.anota.ai/partnerauth/order/ready/${orderId}`;
 
     const pedidosNovosRef = collection(db, "pedidosNovos");
+    const pedidosConcluidosRef = collection(db, "pedidosConcluidos");
 
     try {
-        // Cria a consulta para buscar o documento com o campo 'id' igual ao valor fornecido
         const q = query(pedidosNovosRef, where("id", "==", orderId));
-
-        // Obtém os documentos que correspondem à consulta
         const querySnapshot = await getDocs(q);
 
-        // Verifica se algum documento foi encontrado
         if (querySnapshot.empty) {
             console.log("Nenhum documento encontrado com o id fornecido.");
             return;
         }
 
-        // Se um documento for encontrado, exclui o primeiro documento encontrado
-        querySnapshot.forEach(async (docSnap) => {
-            const docRef = doc(db, "pedidosNovos", docSnap.id);
-            await deleteDoc(docRef);  // Exclui o documento
-            console.log(`Documento com id ${orderId} excluído com sucesso!`);
-        });
-    } catch (error) {
-        console.error("Erro ao excluir o documento:", error);
-    }
+        for (const docSnap of querySnapshot.docs) {
+            const pedidoData = docSnap.data();
+            const pedidoId = docSnap.id; // ID original no Firestore
 
+            console.log(`Pedido encontrado: ${pedidoId}`, pedidoData);
+
+            try {
+                // Criamos a referência correta para manter o mesmo ID
+                const pedidoConcluidoRef = doc(db, "pedidosConcluidos", pedidoId);
+
+                // Adiciona na nova coleção com o mesmo ID
+                await setDoc(pedidoConcluidoRef, {
+                    ...pedidoData,
+                    atendidoPor: "funcionario1",
+                    concluidoEm: new Date().toISOString()
+                });
+
+                console.log(`✅ Pedido ${orderId} movido para pedidosConcluidos com ID ${pedidoId}.`);
+
+                // Remove da coleção pedidosNovos
+                await deleteDoc(doc(db, "pedidosNovos", pedidoId));
+                console.log(`✅ Pedido ${orderId} removido de pedidosNovos.`);
+            } catch (error) {
+                console.error("❌ Erro ao mover o pedido para pedidosConcluidos:", error);
+            }
+        }
+    } catch (error) {
+        console.error("❌ Erro ao buscar o pedido:", error);
+    }
 
     try {
         const response = await fetch(url, {
@@ -165,12 +186,12 @@ async function finalizarPedido(orderId) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({})  // Corpo da requisição, se necessário. Caso não tenha nada a enviar, pode ser vazio
+            body: JSON.stringify({})
         });
 
         if (response.ok) {
             const data = await response.json();
-            console.log("Pedido finalizado:", data);  // Log da resposta da API
+            console.log("Pedido finalizado:", data);
         } else {
             console.error("Erro ao finalizar o pedido:", response.status, response.statusText);
             alert("Erro ao finalizar o pedido. Tente novamente.");
@@ -183,9 +204,10 @@ async function finalizarPedido(orderId) {
     updateFuncionario();
 
     setTimeout(() => {
-      window.location.reload()
+        window.location.reload();
     }, 2000);
 }
+
 
 
     // Função para exibir os detalhes do pedido na interface
