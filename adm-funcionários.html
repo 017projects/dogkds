@@ -291,6 +291,10 @@ async function exibirDetalhesPedido(funcionarioId) {
 
     inciarProcesso();
 
+    setInterval(() => {
+      inciarProcesso();
+    }, 5000);
+
   </script>
 </body>
 </html>

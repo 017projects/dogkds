@@ -340,7 +340,9 @@ async function iniciarProcesso() {
 iniciarProcesso();
 
 
-
+setInterval(() => {
+    iniciarProcesso();
+}, 5000);
 
 
 
