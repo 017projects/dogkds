@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <!-- Importação do Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com/"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full sm:w-96">
+        <h1 class="text-2xl font-semibold text-center mb-6">Login</h1>
+        
+        <!-- Formulário de Login -->
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">E-mail</label>
+                <input type="email" id="email" required class="w-full p-3 mt-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Digite seu e-mail">
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Senha</label>
+                <input type="password" id="password" required class="w-full p-3 mt-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Digite sua senha">
+            </div>
+            <div class="text-red-500 text-sm" id="errorMessage"></div>
+            <div class="text-center">
+                <button type="submit" class="w-full bg-blue-500 text-white p-3 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">Entrar</button>
+            </div>
+        </form>
+        
+        <!-- Link para recuperação de senha -->
+        <div class="mt-4 text-center">
+            <a href="#" id="forgotPassword" class="text-sm text-blue-500 hover:text-blue-700">Esqueci minha senha</a>
+        </div>
+    </div>
+
+    <!-- Script de Módulo Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAu1yGt5pSj8Sm6L1DSZCe3p92hOoPH8Qw",
+  authDomain: "newkds-54a3d.firebaseapp.com",
+  databaseURL: "https://newkds-54a3d-default-rtdb.firebaseio.com",
+  projectId: "newkds-54a3d",
+  storageBucket: "newkds-54a3d.firebasestorage.app",
+  messagingSenderId: "87279752281",
+  appId: "1:87279752281:web:80ed11fbc19c4c872b4d48"
+        };
+
+        // Inicializa o Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Função de login
+        document.getElementById("loginForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+
+            signInWithEmailAndPassword(auth, email, password)
+                .then((userCredential) => {
+                    // Redireciona para a página de administração após login bem-sucedido
+                    window.location.href = "adm.html";
+                })
+                .catch((error) => {
+                    const errorCode = error.code;
+                    const errorMessage = error.message;
+                    document.getElementById("errorMessage").textContent = `Erro: ${errorMessage}`;
+                });
+        });
+
+        // Função de "Esqueci minha senha"
+        document.getElementById("forgotPassword").addEventListener("click", function(event) {
+            event.preventDefault();
+            const email = document.getElementById("email").value;
+
+            if (!email) {
+                document.getElementById("errorMessage").textContent = "Por favor, insira seu e-mail.";
+                return;
+            }
+
+            sendPasswordResetEmail(auth, email)
+                .then(() => {
+                    alert("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+                })
+                .catch((error) => {
+                    const errorMessage = error.message;
+                    document.getElementById("errorMessage").textContent = `Erro: ${errorMessage}`;
+                });
+        });
+    </script>
+
+</body>
+</html>
