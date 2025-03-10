@@ -22,42 +22,46 @@
 
         <!-- Seção de Pedidos Concluídos -->
         <div id="pedidosSection">
-            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Pedidos Concluídos</h2>
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4 cursor-pointer">Pedidos Concluídos</h2>
 
+<!-- Campo para Filtrar por Data -->
+<div class="mb-6 hidden" id="dateBox">
+    <label for="filterDate" class="block text-gray-700">Filtrar por Data:</label>
+    <input 
+        type="date" 
+        id="filterDate" 
+        class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
+</div>
 
-            
+            <!-- Barra de Pesquisa Dentro da Caixa de Pedidos -->
+<div class="mb-6 hidden" id="boxSearch">
+    <input 
+        type="text" 
+        id="searchInput" 
+        placeholder="Pesquisar por ID do Pedido ou Funcionário"
+        class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
+</div>
+
+           
 
             <!-- Seção onde os pedidos serão exibidos -->
             <div id="dataSection" class="space-y-4 hidden">
-                <!-- Barra de Pesquisa Dentro da Caixa de Pedidos -->
-            <div class="mb-6">
-                <input 
-                    type="text" 
-                    id="searchInput" 
-                    placeholder="Pesquisar por ID do Pedido ou Funcionário"
-                    class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-            </div>
+                
                 <!-- Os pedidos serão carregados aqui -->
             </div>
         </div>
 
         <!-- Seção de Funcionários -->
 <div id="funcionariosSection">
-    <h2 class="text-2xl font-semibold text-gray-700 mb-4">Funcionários</h2>
+    <h2 class="text-2xl font-semibold text-gray-700 mb-4 cursor-pointer">Funcionários</h2>
 
-    <!-- Barra de pesquisa dentro da seção de funcionários -->
-    <div class="mb-6">
-        <input 
-            type="text" 
-            id="searchInputFuncionarios" 
-            placeholder="Pesquisar por ID do Produto"
-            class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-    </div>
 
     <!-- Seção onde os funcionários serão exibidos -->
-    <div id="dataFuncionariosSection" class="space-y-4">
+     
+    <div id="dataFuncionariosSection" class="space-y-4 hidden">
+        
         <!-- Os dados dos funcionários serão carregados aqui -->
     </div>
 </div>
@@ -67,17 +71,16 @@
     <script type="module">
                 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
         import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
-        import { getFirestore, collection, getDocs } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
+        import { getFirestore, collection, getDocs, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
 
         // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyAu1yGt5pSj8Sm6L1DSZCe3p92hOoPH8Qw",
-            authDomain: "newkds-54a3d.firebaseapp.com",
-            databaseURL: "https://newkds-54a3d-default-rtdb.firebaseio.com",
-            projectId: "newkds-54a3d",
-            storageBucket: "newkds-54a3d.firebasestorage.app",
-            messagingSenderId: "87279752281",
-            appId: "1:87279752281:web:80ed11fbc19c4c872b4d48"
+        authDomain: "newkds-54a3d.firebaseapp.com",
+        projectId: "newkds-54a3d",
+        storageBucket: "newkds-54a3d.firebasestorage.app",
+        messagingSenderId: "87279752281",
+        appId: "1:87279752281:web:80ed11fbc19c4c872b4d48"
         };
 
         // Inicializa o Firebase
@@ -101,52 +104,72 @@
 
         // Função para carregar dados da coleção "pedidosConcluidos"
         async function loadPedidosConcluidos() {
-            const dataSection = document.getElementById("dataSection");
-            const pedidosRef = collection(firestore, "pedidosConcluidos"); // Nome da coleção
-            try {
-                const snapshot = await getDocs(pedidosRef);
-                if (snapshot.empty) {
-                    dataSection.innerHTML = "<p class='text-center text-gray-500'>Nenhum pedido concluído encontrado.</p>";
-                    return;
-                }
+    const dataSection = document.getElementById("dataSection");
+    const pedidosRef = collection(firestore, "pedidosConcluidos");
+    const selectedDate = document.getElementById("filterDate").value; // Obtém a data selecionada
 
-                pedidos = []; // Limpa o array de pedidos
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const pedido = {
-                        id: doc.id,
-                        atendidoPor: data.atendidoPor,
-                        concluidoEm: formatDate(data.concluidoEm) // Converte a data para o formato desejado
-                    };
+    // Verifica se a data foi escolhida
+    if (!selectedDate) {
+        dataSection.innerHTML = "<p class='text-center text-gray-500'>Selecione uma data para exibir os pedidos.</p>";
+        return;
+    }
 
-                    // Adiciona os pedidos no array
-                    pedidos.push(pedido);
-
-                    const div = document.createElement("div");
-                    div.classList.add("bg-white", "p-4", "rounded-lg", "shadow-md", "border", "border-gray-200", "flex", "justify-between", "items-center");
-
-                    // Exibe o ID do documento, atendidoPor e concluidoEm (agora com a data formatada)
-                    div.innerHTML = `
-                        <div class="flex flex-col">
-                            <strong class="text-gray-700">ID do Pedido:</strong>
-                            <span class="text-sm text-gray-600">${doc.id}</span>
-                        </div>
-                        <div class="flex flex-col">
-                            <strong class="text-gray-700">Atendido Por:</strong>
-                            <span class="text-sm text-gray-600">${data.atendidoPor}</span>
-                        </div>
-                        <div class="flex flex-col text-right">
-                            <strong class="text-gray-700">Concluído Em:</strong>
-                            <span class="text-sm text-gray-600">${pedido.concluidoEm}</span> <!-- Exibe a data formatada -->
-                        </div>
-                    `;
-                    dataSection.appendChild(div);
-                });
-            } catch (error) {
-                console.error("Erro ao carregar dados:", error);
-                dataSection.innerHTML = "<p class='text-center text-red-500'>Erro ao carregar dados.</p>";
-            }
+    try {
+        const snapshot = await getDocs(pedidosRef);
+        if (snapshot.empty) {
+            dataSection.innerHTML = "<p class='text-center text-gray-500'>Nenhum pedido concluído encontrado para essa data.</p>";
+            return;
         }
+
+        pedidos = []; // Limpa o array de pedidos
+        dataSection.innerHTML = ""; // Limpa a exibição anterior
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const pedidoData = new Date(data.concluidoEm);
+            const pedidoFormatado = pedidoData.toISOString().split('T')[0]; // Formata para "YYYY-MM-DD"
+
+            if (pedidoFormatado === selectedDate) { // Verifica se a data do pedido é igual à data selecionada
+                const pedido = {
+                    id: doc.id,
+                    atendidoPor: data.atendidoPor,
+                    concluidoEm: formatDate(data.concluidoEm)
+                };
+
+                pedidos.push(pedido);
+
+                const div = document.createElement("div");
+                div.classList.add("bg-white", "p-4", "rounded-lg", "shadow-md", "border", "border-gray-200", "flex", "justify-between", "items-center");
+
+                div.innerHTML = `
+                    <div class="flex flex-col">
+                        <strong class="text-gray-700">ID do Pedido:</strong>
+                        <span class="text-sm text-gray-600">${doc.id}</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <strong class="text-gray-700">Atendido Por:</strong>
+                        <span class="text-sm text-gray-600">${data.atendidoPor}</span>
+                    </div>
+                    <div class="flex flex-col text-right">
+                        <strong class="text-gray-700">Concluído Em:</strong>
+                        <span class="text-sm text-gray-600">${pedido.concluidoEm}</span>
+                    </div>
+                `;
+                dataSection.appendChild(div);
+            }
+        });
+
+        if (pedidos.length === 0) {
+            dataSection.innerHTML = "<p class='text-center text-gray-500'>Nenhum pedido encontrado para essa data.</p>";
+        }
+    } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+        dataSection.innerHTML = "<p class='text-center text-red-500'>Erro ao carregar dados.</p>";
+    }
+}
+
+// Dispara a filtragem sempre que uma nova data for selecionada
+document.getElementById("filterDate").addEventListener("change", loadPedidosConcluidos);
 
         
 
@@ -208,12 +231,15 @@
         }
 
         // Adiciona o evento de clique no botão de alternância
-        document.getElementById("pedidosSection").addEventListener("click", togglePedidosBox);
+        document.querySelector("#pedidosSection h2").addEventListener("click", togglePedidosBox)
 
         // Função para alternar a visibilidade da seção de pedidos
         function togglePedidosBox() {
             const pedidosSection = document.getElementById("dataSection");
             pedidosSection.classList.toggle("hidden");
+            const pedidosSSection = document.getElementById("boxSearch");
+            pedidosSSection.classList.toggle("hidden");
+            document.getElementById('dateBox').classList.toggle("hidden");
         }
 
 
@@ -228,7 +254,27 @@
             return `${day}/${month}/${year} ${hours}:${minutes}`;
         }
 
+        // Evento para filtrar os pedidos pela data selecionada
+    document.getElementById("filterDate").addEventListener("change", filterPedidosPorData);
+
+function filterPedidosPorData() {
+    const selectedDate = document.getElementById("filterDate").value;
+    if (!selectedDate) return renderPedidos(pedidos); // Se nenhum filtro for selecionado, exibe todos os pedidos
+
+    const filteredPedidos = pedidos.filter(pedido => {
+        const pedidoDate = pedido.concluidoEm.split(" ")[0]; // Obtém apenas a data no formato DD/MM/YYYY
+        const [day, month, year] = pedidoDate.split("/");
+        const formattedPedidoDate = `${year}-${month}-${day}`; // Converte para YYYY-MM-DD para comparação
+
+        return formattedPedidoDate === selectedDate;
+    });
+
+    renderPedidos(filteredPedidos);
+}
+
 //funcionarios
+
+
 
 // Função para buscar os detalhes do pedido usando a API
 async function buscarDetalhesPedido(orderId) {
@@ -257,10 +303,13 @@ async function buscarDetalhesPedido(orderId) {
 
 // Função para carregar dados dos funcionários
 async function loadFuncionarios() {
-    const funcionariosSection = document.getElementById("funcionariosSection");
+    const funcionariosSection = document.getElementById("dataFuncionariosSection");
     const funcionariosRef = collection(firestore, "funcionarios");
 
     try {
+        // Limpa a seção de funcionários antes de recarregar os dados
+        funcionariosSection.innerHTML = "";
+
         const snapshot = await getDocs(funcionariosRef);
         if (snapshot.empty) {
             funcionariosSection.innerHTML = "<p class='text-center text-gray-500'>Nenhum funcionário encontrado.</p>";
@@ -296,10 +345,16 @@ async function loadFuncionarios() {
                     <strong class="text-gray-700">Livre Desde:</strong>
                     <span class="text-sm text-gray-600">${funcionario.livreDesde}</span>
                 </div>
-                <button class="bg-red-500 text-white px-4 py-2 rounded mt-2" onclick="removerProduto('${funcionario.id}')">Remover Produto</button> <!-- Botão de remover produto -->
+                <button class="bg-red-500 text-white px-4 py-2 rounded mt-2" id="removeIdFuncionario-${funcionario.id}">Remover Produto</button>
             `;
 
             funcionariosSection.appendChild(div);
+
+            // Agora adiciona o evento de clique para o botão de remoção de cada funcionário
+            const removeButton = div.querySelector(`#removeIdFuncionario-${funcionario.id}`);
+            if (removeButton) {
+                removeButton.addEventListener('click', () => removerProduto(funcionario.id));
+            }
         });
     } catch (error) {
         console.error("Erro ao carregar dados dos funcionários:", error);
@@ -307,11 +362,15 @@ async function loadFuncionarios() {
     }
 }
 
+// Função para remover produto de um funcionário
 async function removerProduto(funcionarioId) {
+    console.log("Removendo produto do funcionário com ID:", funcionarioId);  // Verifique o ID
+
     const funcionariosRef = doc(firestore, "funcionarios", funcionarioId); // Referência do funcionário
     try {
         await updateDoc(funcionariosRef, {
-            produtoId: ""  // Atualiza o produtoId para uma string vazia
+            funcionarioLivre: true,
+            produtoId: null  // Atualiza o produtoId para uma string vazia
         });
         console.log(`Produto removido do funcionário com ID: ${funcionarioId}`);
         loadFuncionarios();  // Recarrega a lista de funcionários após a atualização
@@ -320,14 +379,6 @@ async function removerProduto(funcionarioId) {
     }
 }
 
-// Função para filtrar os funcionários conforme a pesquisa
-function filterFuncionarios() {
-    const searchQuery = document.getElementById("searchInputFuncionarios").value.toLowerCase();
-    const filteredFuncionarios = funcionarios.filter(funcionario => {
-        return funcionario.produtoId.toLowerCase().includes(searchQuery);
-    });
-    renderFuncionarios(filteredFuncionarios);
-}
 
 // Função para renderizar os funcionários filtrados
 function renderFuncionarios(funcionariosList) {
@@ -358,14 +409,11 @@ function renderFuncionarios(funcionariosList) {
     });
 }
 
-// Adiciona o evento de pesquisa ao input
-document.getElementById("searchInputFuncionarios").addEventListener("keyup", filterFuncionarios);
-
 // Carrega os dados dos funcionários ao inicializar
 loadFuncionarios();
 
 // Adiciona o evento de clique no botão de alternância
-document.getElementById("funcionariosSection").addEventListener("click", toggleFuncionarioBox);
+document.querySelector("#funcionariosSection h2").addEventListener("click", toggleFuncionarioBox);
 
 // Função para alternar a visibilidade da seção de pedidos
 function toggleFuncionarioBox() {
@@ -373,6 +421,14 @@ function toggleFuncionarioBox() {
     pedidosSection.classList.toggle("hidden");
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    
+    const removeButton = document.getElementById('removeIdFuncionario');
+
+    if (removeButton) {
+        removeButton.addEventListener('click', () => removerProduto(funcionarioId));
+    }
+});
 
     </script>
 
