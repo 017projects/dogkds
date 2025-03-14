@@ -201,11 +201,9 @@ async function finalizarPedido(orderId) {
         alert("Erro ao finalizar o pedido. Tente novamente.");
     }
 
-    updateFuncionario();
-
-    setTimeout(() => {
-        window.location.reload();
-    }, 2000);
+    pedidoContainer.innerHTML = '<p>Pedido concluído com sucesso! Aguarde o próximo pedido</p>';
+await updateFuncionario(); // Aguarda a atualização do funcionário
+setTimeout(buscarPedidoId, 2000); // Dá um tempo para o Firestore processar antes de tentar buscar outro pedido
 }
 
 
