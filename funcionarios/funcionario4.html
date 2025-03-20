@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pedido - funcionário 4</title>
+  <title>Pedido - Funcionario 4</title>
   <link rel="stylesheet" href="funcionario.css">
 </head>
 <body>
   <div class="container">
-    <h1>04</h1>
+    <h1>01</h1>
 
     <div class="pedido"></div> <!-- Aqui exibe o pedido -->
     
@@ -21,7 +21,7 @@
   <script type="module">
     // Importa e inicializa o Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     
     // Configuração do Firebase
     const firebaseConfig = {
@@ -40,194 +40,190 @@
     // Seleciona a div onde o pedido será exibido
     const pedidoContainer = document.querySelector('.pedido');
     
+    // Variável para armazenar o ID do pedido
+    let orderId = null;
+
     // Função para buscar o ID do pedido no Firestore
     async function buscarPedidoId() {
-    console.log("Iniciando busca de pedidos para o funcionário 4...");
+        console.log("Iniciando busca de pedidos para o Funcionario 4...");
 
-    try {
-        // Buscar o documento do funcionário na coleção "funcionarios"
+        try {
+            // Buscar o documento do funcionário na coleção "funcionarios"
+            const funcionarioRef = doc(db, "funcionarios", "funcionario4");
+            const funcionarioSnap = await getDoc(funcionarioRef);
+
+            if (!funcionarioSnap.exists()) {
+                console.error("Funcionário não encontrado no Firestore.");
+                return;
+            }
+
+            const funcionarioData = funcionarioSnap.data();
+            orderId = funcionarioData.produtoId; // Obtendo o ID do pedido diretamente
+
+            if (!orderId) {
+                console.error("Nenhum ID de pedido encontrado para o funcionário.");
+                return;
+            }
+
+            console.log("ID do pedido encontrado:", orderId);
+
+            // Chamar a API para obter os detalhes do pedido
+            const detalhesPedido = await buscarDetalhesDoPedido(orderId);
+            if (detalhesPedido) {
+    exibirDetalhesDoPedido(detalhesPedido); // Exibe os detalhes do pedido
+}  else {
+                console.error("Erro ao obter os detalhes do pedido.");
+            }
+
+        } catch (error) {
+            console.error("Erro ao buscar pedido:", error);
+        }
+    }
+
+    async function updateFuncionario() {
         const funcionarioRef = doc(db, "funcionarios", "funcionario4");
         const funcionarioSnap = await getDoc(funcionarioRef);
-
-        if (!funcionarioSnap.exists()) {
-            console.error("Funcionário não encontrado no Firestore.");
-            return;
-        }
-
         const funcionarioData = funcionarioSnap.data();
-        const orderId = funcionarioData.produtoId; // Obtendo o ID do pedido diretamente
+        const funcionarioLivre = funcionarioData.funcionarioLivre;
 
-        if (!orderId) {
-            console.error("Nenhum ID de pedido encontrado para o funcionário.");
-            setTimeout(() => {
-              window.location.reload();
-            }, 5000);
-            return;
-        }
-
-        console.log("ID do pedido encontrado:", orderId);
-
-        // Chamar a API para obter os detalhes do pedido
-        const detalhesPedido = await buscarDetalhesDoPedido(orderId);
-        if (detalhesPedido) {
-            exibirDetalhesDoPedido(detalhesPedido); // Exibe os detalhes do pedido
-            // Configura o botão para finalizar o pedido
-            const finalizarButton = document.getElementById('finalizarPedido');
-            finalizarButton.addEventListener('click', () => finalizarPedido(orderId));  // Configura a ação ao clicar no botão
-        } else {
-            console.error("Erro ao obter os detalhes do pedido.");
-        }
-
-    } catch (error) {
-        console.error("Erro ao buscar pedido:", error);
+        await updateDoc(funcionarioRef, {
+            funcionarioLivre: true,
+            produtoId: '',
+            livreDesde: new Date().getDate() + '/' + (new Date().getMonth()+1) + '/' + new Date().getFullYear() + ' - ' + new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds(),
+        });
     }
-}
-
-async function updateFuncionario() {
-  const funcionarioRef = doc(db, "funcionarios", "funcionario4");
-  const funcionarioSnap = await getDoc(funcionarioRef);
-  const funcionarioData = funcionarioSnap.data()
-  const funcionarioLivre = funcionarioData.funcionarioLivre;
-
-  await updateDoc(funcionarioRef, {
-    funcionarioLivre: true,
-    produtoId: '',
-    livreDesde: new Date().getDate() + '/' + (new Date().getMonth()+1) + '/' + new Date().getFullYear() + ' - ' + new Date().getHours() + ':' + new Date().getMinutes() + ':' + new Date().getSeconds(),
-  })
-}
 
     // Função para buscar os detalhes do pedido através da API
-async function buscarDetalhesDoPedido(orderId) {
-    const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'; // Token da API
-    const url = `https://api-parceiros.anota.ai/partnerauth/ping/get/${orderId}`;
-    const sandboxToken = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2N2FmMzZjMzQwZGM5ODAwMTIzMDg2YTEifQ.vahp69o66vXX6Ya9PXZ7_IW62rHHgFg6l5cdD799Mrg'
-    
-    try {
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `${token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-        });
+    async function buscarDetalhesDoPedido(orderId) {
+        const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'; // Token da API
 
-        if (response.ok) {
-            const data = await response.json();
-            console.log("Detalhes do pedido recebidos da API:", data);  // Adicionando o log aqui
-            return data;  // Retorna os detalhes do pedido
-        } else {
-            console.error("Erro na API:", response.status, response.statusText);
+        const url = `https://api-parceiros.anota.ai/partnerauth/ping/get/${orderId}`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Detalhes do pedido recebidos da API:", data);  // Adicionando o log aqui
+                return data;  // Retorna os detalhes do pedido
+            } else {
+                console.error("Erro na API:", response.status, response.statusText);
+                return null;
+            }
+        } catch (error) {
+            console.error("Erro ao chamar a API:", error);
             return null;
         }
-    } catch (error) {
-        console.error("Erro ao chamar a API:", error);
-        return null;
     }
-}
 
-// Função para enviar o pedido como "pronto" para a API
-async function finalizarPedido(orderId) {
-    const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'; // Token da API
-
-    const sandboxToken = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2N2FmMzZjMzQwZGM5ODAwMTIzMDg2YTEifQ.vahp69o66vXX6Ya9PXZ7_IW62rHHgFg6l5cdD799Mrg'
-
-    const url = `https://api-parceiros.anota.ai/partnerauth/order/ready/${orderId}`;
-
-    const pedidosNovosRef = collection(db, "pedidosNovos");
-    const pedidosConcluidosRef = collection(db, "pedidosConcluidos");
-
-    try {
-        const q = query(pedidosNovosRef, where("id", "==", orderId));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            console.log("Nenhum documento encontrado com o id fornecido.");
+    // Função para enviar o pedido como "pronto" para a API
+    async function finalizarPedido(orderId) {
+        if (!orderId) {
+            console.error("Erro: ID do pedido não encontrado.");
             return;
         }
 
-        for (const docSnap of querySnapshot.docs) {
-            const pedidoData = docSnap.data();
-            const pedidoId = docSnap.id; // ID original no Firestore
+        const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'; // Token da API
 
-            console.log(`Pedido encontrado: ${pedidoId}`, pedidoData);
+        const url = `https://api-parceiros.anota.ai/partnerauth/order/ready/${orderId}`;
 
-            try {
-                // Criamos a referência correta para manter o mesmo ID
-                const pedidoConcluidoRef = doc(db, "pedidosConcluidos", pedidoId);
+        const pedidosNovosRef = collection(db, "pedidosNovos");
+        const pedidosConcluidosRef = collection(db, "pedidosConcluidos");
 
-                // Adiciona na nova coleção com o mesmo ID
-                await setDoc(pedidoConcluidoRef, {
-                    ...pedidoData,
-                    atendidoPor: "funcionario4",
-                    concluidoEm: new Date().toISOString()
-                });
+        try {
+            const q = query(pedidosNovosRef, where("id", "==", orderId));
+            const querySnapshot = await getDocs(q);
 
-                console.log(`✅ Pedido ${orderId} movido para pedidosConcluidos com ID ${pedidoId}.`);
-
-                // Remove da coleção pedidosNovos
-                await deleteDoc(doc(db, "pedidosNovos", pedidoId));
-                console.log(`✅ Pedido ${orderId} removido de pedidosNovos.`);
-            } catch (error) {
-                console.error("❌ Erro ao mover o pedido para pedidosConcluidos:", error);
+            if (querySnapshot.empty) {
+                console.log("Nenhum documento encontrado com o id fornecido.");
+                return;
             }
+
+            for (const docSnap of querySnapshot.docs) {
+                const pedidoData = docSnap.data();
+                const pedidoId = docSnap.id; // ID original no Firestore
+
+                console.log(`Pedido encontrado: ${pedidoId}`, pedidoData);
+
+                try {
+                    // Criamos a referência correta para manter o mesmo ID
+                    const pedidoConcluidoRef = doc(db, "pedidosConcluidos", pedidoId);
+
+                    // Adiciona na nova coleção com o mesmo ID
+                    await setDoc(pedidoConcluidoRef, {
+                        ...pedidoData,
+                        atendidoPor: "funcionario4",
+                        concluidoEm: new Date().toISOString()
+                    });
+
+                    console.log(`✅ Pedido ${orderId} movido para pedidosConcluidos com ID ${pedidoId}.`);
+
+                    // Remove da coleção pedidosNovos
+                    await deleteDoc(doc(db, "pedidosNovos", pedidoId));
+                    console.log(`✅ Pedido ${orderId} removido de pedidosNovos.`);
+                } catch (error) {
+                    console.error("❌ Erro ao mover o pedido para pedidosConcluidos:", error);
+                }
+            }
+        } catch (error) {
+            console.error("❌ Erro ao buscar o pedido:", error);
         }
-    } catch (error) {
-        console.error("❌ Erro ao buscar o pedido:", error);
-    }
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `${token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({})
-        });
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
 
-        if (response.ok) {
-            const data = await response.json();
-            console.log("Pedido finalizado:", data);
-        } else {
-            console.error("Erro ao finalizar o pedido:", response.status, response.statusText);
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Pedido finalizado:", data);
+            } else {
+                console.error("Erro ao finalizar o pedido:", response.status, response.statusText);
+                alert("Erro ao finalizar o pedido. Tente novamente.");
+            }
+        } catch (error) {
+            console.error("Erro ao chamar a API:", error);
             alert("Erro ao finalizar o pedido. Tente novamente.");
         }
-    } catch (error) {
-        console.error("Erro ao chamar a API:", error);
-        alert("Erro ao finalizar o pedido. Tente novamente.");
+
+        pedidoContainer.innerHTML = '<p>Pedido concluído com sucesso! Aguarde o próximo pedido</p>';
+        await updateFuncionario(); // Aguarda a atualização do funcionário
     }
-
-    pedidoContainer.innerHTML = '<p>Pedido concluído com sucesso! Aguarde o próximo pedido</p>';
-await updateFuncionario(); // Aguarda a atualização do funcionário
-setTimeout(buscarPedidoId, 2000); // Dá um tempo para o Firestore processar antes de tentar buscar outro pedido
-}
-
 
     // Função para exibir os detalhes do pedido na interface
-// Função para exibir os detalhes do pedido na interface
-async function exibirDetalhesDoPedido(detalhesPedido) {
-    console.log("Estrutura dos dados do pedido:", detalhesPedido);  // Logando os dados para análise
+    async function exibirDetalhesDoPedido(detalhesPedido) {
+        console.log("Estrutura dos dados do pedido:", detalhesPedido);
 
-    // Verifica se 'info' e 'info.items' existem e são um array
-    if (!detalhesPedido || !detalhesPedido.info || !Array.isArray(detalhesPedido.info.items)) {
-        pedidoContainer.innerHTML = "<p>Erro ao exibir detalhes do pedido. Itens não encontrados.</p>";
-        return;
-    }
+        if (!detalhesPedido || !detalhesPedido.info || !Array.isArray(detalhesPedido.info.items)) {
+            pedidoContainer.innerHTML = "<p>Erro ao exibir detalhes do pedido. Itens não encontrados.</p>";
+            return;
+        }
 
-    const { shortReference, items, observation } = detalhesPedido.info;
+        const { shortReference, items, observation } = detalhesPedido.info;
 
-    // Lista de palavras-chave para identificar refrigerantes
-    const itensOcultos = ["refrigerante", 'coca', "coca-cola", "guaraná", "fanta", "sprite", "guarana", "itubaina", "h2o", 'sukita', 'schweppes', 'agua', 'chocolate', 'honey'];
+        // Lista de palavras-chave para identificar refrigerantes
+        const itensOcultos = ["refrigerante", "coca-cola", "guaraná", "fanta", "sprite", "guarana", "itubaina", "h2o", 'sukita', 'schweppes', 'agua', 'chocolate', 'honey', 'coca'];
 
-    // Filtra os itens que não devem ser exibidos
-    const itensFiltrados = items.filter(item => 
-        !itensOcultos.some(nome => item.name.toLowerCase().includes(nome))
-    );
+        // Filtra os itens que não devem ser exibidos
+        const itensFiltrados = items.filter(item => 
+            !itensOcultos.some(nome => item.name.toLowerCase().includes(nome))
+        );
 
-    // Atualiza a div com os detalhes do pedido
-     pedidoContainer.innerHTML = `
+        // Atualiza a div com os detalhes do pedido
+        pedidoContainer.innerHTML = `
     <p><strong>Pedido #${shortReference}</strong></p>
     <p><strong>Itens:</strong></p>
     <ul>
@@ -256,27 +252,50 @@ async function exibirDetalhesDoPedido(detalhesPedido) {
         `).join('')}
     </ul>
     ${observation ? `<p class="observacao"><strong>Observação Geral:</strong> ${observation}</p>` : ''}`;
-}
 
+    const finalizarButton = document.getElementById('finalizarPedido');
+finalizarButton.addEventListener('click', () => finalizarPedido(orderId));
+    }
 
+    // Implanta listener em tempo real para o pedido
+    onSnapshot(doc(db, "funcionarios", "funcionario4"), (docSnap) => {
+    const funcionarioData = docSnap.data();
+    const newOrderId = funcionarioData.produtoId;
+
+    if (newOrderId && newOrderId !== orderId) {
+        console.log("Pedido atualizado. Buscando detalhes...");
+        orderId = newOrderId; // Atualiza o ID do pedido
+        buscarDetalhesDoPedido(orderId) // Atualiza os detalhes do pedido assim que houver mudanças
+            .then(detalhesPedido => {
+                if (detalhesPedido) {
+                    console.log("Detalhes do pedido recebidos. Exibindo...");
+                    exibirDetalhesDoPedido(detalhesPedido); // Exibe os detalhes do pedido
+                } else {
+                    console.log("Não foi possível obter os detalhes do pedido.");
+                }
+            });
+    }
+});
 
     // Chama a função para buscar e exibir o pedido assim que a página carregar
     buscarPedidoId();
 
-
     document.getElementById('logoutButton').addEventListener('click', async function(){
-  const funcionarioRef = doc(db, "funcionarios", "funcionario4");
-  const funcionarioSnap = await getDoc(funcionarioRef);
-  const funcionarioData = funcionarioSnap.data()
-  const funcionarioLivre = funcionarioData.funcionarioLivre;
+        const funcionarioRef = doc(db, "funcionarios", "funcionario4");
+        const funcionarioSnap = await getDoc(funcionarioRef);
+        const funcionarioData = funcionarioSnap.data();
+        const funcionarioLivre = funcionarioData.funcionarioLivre;
 
-  await updateDoc(funcionarioRef, {
-    funcionarioLivre: false,
-    aberto: false,
-  })
+        await updateDoc(funcionarioRef, {
+            funcionarioLivre: false,
+            aberto: false,
+        });
 
-  history.back();
-})
-  </script>
+        history.back();
+    });
+
+</script>
+
+
 </body>
 </html>
