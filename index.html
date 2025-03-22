@@ -136,21 +136,20 @@
     }));
 
     const pedidosComDetalhes = detalhesPedidos.filter(pedido => pedido !== null);
-    pedidosComDetalhes.sort((a, b) => Number(a.detalhes.shortReference) - Number(b.detalhes.shortReference));
+    pedidosComDetalhes.sort((a, b) => Number(b.detalhes.shortReference) - Number(a.detalhes.shortReference));
 
+    // Inserir os novos pedidos no Firestore sem apagar os antigos
     for (const pedido of pedidosComDetalhes) {
         const pedidoRef = doc(db, "pedidosNovos", pedido.detalhes.shortReference.toString());
         await setDoc(pedidoRef, {
             statusDoPedido: 1,
             id: pedido.detalhes.id,
             funcionarioAT: 0,
-            jaDistribuido: false
-        }, { merge: true });
+        }, { merge: true }); // Usa merge para não substituir pedidos antigos
     }
 
     console.log("Novos pedidos foram adicionados ao Firestore sem apagar os antigos!");
 }
-
         async function buscarDetalhesPedido(orderId) {
             const API_URL_DETALHES = `https://api-parceiros.anota.ai/partnerauth/ping/get/${orderId}`;
             try {
@@ -229,7 +228,6 @@
     });
 }
 
-
 async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
@@ -265,12 +263,10 @@ async function distribuirPedidos() {
         const pedidosSnap = await getDocs(query(pedidosRef));
         let pedidos = pedidosSnap.docs.map(doc => ({
             id: doc.id,
-            shortReference: Number(doc.id),
+            shortReference: doc.data().id,
             produtoId: doc.data().id,
             jaDistribuido: doc.data().jaDistribuido || false
         }));
-
-        pedidos.sort((a, b) => a.shortReference - b.shortReference); // Ordenar os pedidos corretamente
 
         if (pedidos.length === 0) {
             console.log("Nenhum pedido novo encontrado.");
@@ -281,19 +277,20 @@ async function distribuirPedidos() {
 
         let pedidosIndex = 0;
         for (let i = 0; i < funcionarios.length; i++) {
-            if (pedidosIndex >= pedidos.length) break;
+            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
 
             let funcionario = funcionarios[i];
 
             while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
-                pedidosIndex++;
+                pedidosIndex++; // Pula pedidos já distribuídos
             }
 
-            if (pedidosIndex >= pedidos.length) break;
+            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
 
             let pedido = pedidos[pedidosIndex];
             let pedidoRef = doc(db, "pedidosNovos", pedido.id);
 
+            // Atribui o pedido ao funcionário
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
                 statusDoPedido: 2,
@@ -308,7 +305,7 @@ async function distribuirPedidos() {
 
             console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
 
-            pedidosIndex++;
+            pedidosIndex++; // Passa para o próximo pedido
         }
 
         await batch.commit();
@@ -318,7 +315,6 @@ async function distribuirPedidos() {
         console.error("Erro ao distribuir pedidos:", error);
     }
 }
-
 
 // Converte "DD/MM/YYYY - HH:MM:SS" para Date
 function converterStringParaData(dataString) {
