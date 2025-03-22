@@ -136,16 +136,16 @@
     }));
 
     const pedidosComDetalhes = detalhesPedidos.filter(pedido => pedido !== null);
-    pedidosComDetalhes.sort((a, b) => Number(b.detalhes.shortReference) - Number(a.detalhes.shortReference));
+    pedidosComDetalhes.sort((a, b) => Number(a.detalhes.shortReference) - Number(b.detalhes.shortReference));
 
-    // Inserir os novos pedidos no Firestore sem apagar os antigos
     for (const pedido of pedidosComDetalhes) {
         const pedidoRef = doc(db, "pedidosNovos", pedido.detalhes.shortReference.toString());
         await setDoc(pedidoRef, {
             statusDoPedido: 1,
             id: pedido.detalhes.id,
             funcionarioAT: 0,
-        }, { merge: true }); // Usa merge para não substituir pedidos antigos
+            jaDistribuido: false
+        }, { merge: true });
     }
 
     console.log("Novos pedidos foram adicionados ao Firestore sem apagar os antigos!");
@@ -230,7 +230,7 @@
 }
 
 
-        async function distribuirPedidos() {
+async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
     const configDocRef = doc(db, "config", "funcionariosLivres");
@@ -265,10 +265,12 @@
         const pedidosSnap = await getDocs(query(pedidosRef));
         let pedidos = pedidosSnap.docs.map(doc => ({
             id: doc.id,
-            shortReference: doc.data().id,
+            shortReference: Number(doc.id),
             produtoId: doc.data().id,
             jaDistribuido: doc.data().jaDistribuido || false
         }));
+
+        pedidos.sort((a, b) => a.shortReference - b.shortReference); // Ordenar os pedidos corretamente
 
         if (pedidos.length === 0) {
             console.log("Nenhum pedido novo encontrado.");
@@ -279,20 +281,19 @@
 
         let pedidosIndex = 0;
         for (let i = 0; i < funcionarios.length; i++) {
-            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
+            if (pedidosIndex >= pedidos.length) break;
 
             let funcionario = funcionarios[i];
 
             while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
-                pedidosIndex++; // Pula pedidos já distribuídos
+                pedidosIndex++;
             }
 
-            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
+            if (pedidosIndex >= pedidos.length) break;
 
             let pedido = pedidos[pedidosIndex];
             let pedidoRef = doc(db, "pedidosNovos", pedido.id);
 
-            // Atribui o pedido ao funcionário
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
                 statusDoPedido: 2,
@@ -307,7 +308,7 @@
 
             console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
 
-            pedidosIndex++; // Passa para o próximo pedido
+            pedidosIndex++;
         }
 
         await batch.commit();
