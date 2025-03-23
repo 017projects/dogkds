@@ -108,7 +108,7 @@
                 const response = await fetch(API_URL, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${API_TOKEN}`,
+                        'Authorization': `${sandboxToken}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
@@ -137,7 +137,9 @@
 
     const pedidosComDetalhes = detalhesPedidos.filter(pedido => pedido !== null);
     pedidosComDetalhes.sort((a, b) => Number(b.detalhes.shortReference) - Number(a.detalhes.shortReference));
+    pedidosComDetalhes.sort((a, b) => Number(b.detalhes.shortReference) - Number(a.detalhes.shortReference));
 
+    // Inserir os novos pedidos no Firestore sem apagar os antigos
     // Inserir os novos pedidos no Firestore sem apagar os antigos
     for (const pedido of pedidosComDetalhes) {
         const pedidoRef = doc(db, "pedidosNovos", pedido.detalhes.shortReference.toString());
@@ -145,6 +147,7 @@
             statusDoPedido: 1,
             id: pedido.detalhes.id,
             funcionarioAT: 0,
+        }, { merge: true }); // Usa merge para não substituir pedidos antigos
         }, { merge: true }); // Usa merge para não substituir pedidos antigos
     }
 
@@ -156,7 +159,7 @@
                 const response = await fetch(API_URL_DETALHES, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${API_TOKEN}`,
+                        'Authorization': `${sandboxToken}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
@@ -228,7 +231,7 @@
     });
 }
 
-async function distribuirPedidos() {
+        async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
     const configDocRef = doc(db, "config", "funcionariosLivres");
@@ -264,6 +267,7 @@ async function distribuirPedidos() {
         let pedidos = pedidosSnap.docs.map(doc => ({
             id: doc.id,
             shortReference: doc.data().id,
+            shortReference: doc.data().id,
             produtoId: doc.data().id,
             jaDistribuido: doc.data().jaDistribuido || false
         }));
@@ -278,18 +282,22 @@ async function distribuirPedidos() {
         let pedidosIndex = 0;
         for (let i = 0; i < funcionarios.length; i++) {
             if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
+            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
 
             let funcionario = funcionarios[i];
 
             while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
                 pedidosIndex++; // Pula pedidos já distribuídos
+                pedidosIndex++; // Pula pedidos já distribuídos
             }
 
+            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
             if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
 
             let pedido = pedidos[pedidosIndex];
             let pedidoRef = doc(db, "pedidosNovos", pedido.id);
 
+            // Atribui o pedido ao funcionário
             // Atribui o pedido ao funcionário
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
@@ -305,6 +313,7 @@ async function distribuirPedidos() {
 
             console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
 
+            pedidosIndex++; // Passa para o próximo pedido
             pedidosIndex++; // Passa para o próximo pedido
         }
 
