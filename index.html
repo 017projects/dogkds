@@ -140,14 +140,12 @@
     pedidosComDetalhes.sort((a, b) => Number(b.detalhes.shortReference) - Number(a.detalhes.shortReference));
 
     // Inserir os novos pedidos no Firestore sem apagar os antigos
-    // Inserir os novos pedidos no Firestore sem apagar os antigos
     for (const pedido of pedidosComDetalhes) {
         const pedidoRef = doc(db, "pedidosNovos", pedido.detalhes.shortReference.toString());
         await setDoc(pedidoRef, {
             statusDoPedido: 1,
             id: pedido.detalhes.id,
             funcionarioAT: 0,
-        }, { merge: true }); // Usa merge para não substituir pedidos antigos
         }, { merge: true }); // Usa merge para não substituir pedidos antigos
     }
 
