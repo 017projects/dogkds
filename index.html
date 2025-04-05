@@ -142,7 +142,21 @@
 
     // Inserir os novos pedidos no Firestore sem apagar os antigos
     for (const pedido of pedidosComDetalhes) {
-        const pedidoRef = doc(db, "pedidosNovos", pedido.detalhes.shortReference.toString());
+        const defId = pedido.detalhes.shortReference.toString()
+        var idFinal = 0
+
+        if(defId.length === 1){
+            var idFinal = defId.padStart(3, '0')
+            console.log(idFinal)
+        } else if (defId.length === 2){
+            var idFinal = defId.padStart(3, '0')
+            console.log(idFinal)
+        } else if (defId.length >= 3 ){
+            var idFinal = defId
+            console.log(idFinal)
+        }
+
+        const pedidoRef = doc(db, "pedidosNovos", idFinal);
         await setDoc(pedidoRef, {
             statusDoPedido: 1,
             id: pedido.detalhes.id,
@@ -155,10 +169,10 @@
         async function buscarDetalhesPedido(orderId) {
             const API_URL_DETALHES = `https://api-parceiros.anota.ai/partnerauth/ping/get/${orderId}`;
             try {
-                const response = await fetch(API_URL_DETALHES, {
+                const response = await fetch(API_TOKEN, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${API_TOKEN}`,
+                        'Authorization': `${sandboxToken}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
