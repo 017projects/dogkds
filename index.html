@@ -108,7 +108,7 @@
                 const response = await fetch(API_URL, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${sandboxToken}`,
+                        'Authorization': `${API_TOKEN}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
@@ -136,8 +136,9 @@
     }));
 
     const pedidosComDetalhes = detalhesPedidos.filter(pedido => pedido !== null);
-    pedidosComDetalhes.sort((a, b) => Number(b.detalhes.shortReference) - Number(a.detalhes.shortReference));
-    pedidosComDetalhes.sort((a, b) => Number(b.detalhes.shortReference) - Number(a.detalhes.shortReference));
+    pedidosComDetalhes.sort((a, b) => {
+    return parseInt(b.detalhes.shortReference, 10) - parseInt(a.detalhes.shortReference, 10);
+});
 
     // Inserir os novos pedidos no Firestore sem apagar os antigos
     for (const pedido of pedidosComDetalhes) {
@@ -157,7 +158,7 @@
                 const response = await fetch(API_URL_DETALHES, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${sandboxToken}`,
+                        'Authorization': `${API_TOKEN}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
@@ -229,7 +230,7 @@
     });
 }
 
-        async function distribuirPedidos() {
+async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
     const configDocRef = doc(db, "config", "funcionariosLivres");
@@ -265,7 +266,6 @@
         let pedidos = pedidosSnap.docs.map(doc => ({
             id: doc.id,
             shortReference: doc.data().id,
-            shortReference: doc.data().id,
             produtoId: doc.data().id,
             jaDistribuido: doc.data().jaDistribuido || false
         }));
@@ -275,27 +275,26 @@
             return;
         }
 
+        // Ordenação dos pedidos por shortReference como números
+        pedidos.sort((a, b) => parseInt(a.shortReference, 10) - parseInt(b.shortReference, 10));
+
         const batch = writeBatch(db);
 
         let pedidosIndex = 0;
         for (let i = 0; i < funcionarios.length; i++) {
-            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
             if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
 
             let funcionario = funcionarios[i];
 
             while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
                 pedidosIndex++; // Pula pedidos já distribuídos
-                pedidosIndex++; // Pula pedidos já distribuídos
             }
 
-            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
             if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
 
             let pedido = pedidos[pedidosIndex];
             let pedidoRef = doc(db, "pedidosNovos", pedido.id);
 
-            // Atribui o pedido ao funcionário
             // Atribui o pedido ao funcionário
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
@@ -311,7 +310,6 @@
 
             console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
 
-            pedidosIndex++; // Passa para o próximo pedido
             pedidosIndex++; // Passa para o próximo pedido
         }
 
@@ -337,7 +335,7 @@ async function iniciarProcesso() {
     await buscarPedidos(); // Aguarda buscar os pedidos antes de distribuir
     await new Promise(resolve => setTimeout(resolve, 1000)); // Pequeno delay para garantir que o Firestore processou os dados
     await distribuirPedidos(); // Agora distribui os pedidos corretamente
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Pequeno delay para garantir a atualização do Firestore
+    await new Promise(resolve => setTimeout(resolve, 1000));
     await exibirPedidosDetalhados(); // Exibe os pedidos corretamente já distribuídos
 }
 

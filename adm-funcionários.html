@@ -146,6 +146,7 @@ async function exibirDetalhesPedido(funcionarioId) {
   const orderId = await buscarPedidoFuncionario(funcionarioId);
   if (!orderId) {
     console.log(`Nenhum pedido associado ao ${funcionarioId}`);
+    document.getElementById(`pedido${funcionarioId.slice(-1)}`).innerHTML = `Sem pedidos para o funcionário <strong>${funcionarioId.slice(-1)}</strong>`
     return;
   }
 
