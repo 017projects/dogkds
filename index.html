@@ -169,10 +169,10 @@
         async function buscarDetalhesPedido(orderId) {
             const API_URL_DETALHES = `https://api-parceiros.anota.ai/partnerauth/ping/get/${orderId}`;
             try {
-                const response = await fetch(API_TOKEN, {
+                const response = await fetch(API_URL_DETALHES, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${sandboxToken}`,
+                        'Authorization': `${API_TOKEN}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
