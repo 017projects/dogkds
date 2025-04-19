@@ -244,6 +244,16 @@
     });
 }
 
+// Converte "DD/MM/YYYY - HH:MM:SS" para Date
+function converterStringParaData(dataString) {
+    if (!dataString || typeof dataString !== "string") return new Date(0);
+    const [data, hora] = dataString.split(" - ");
+    if (!data || !hora) return new Date(0);
+    const [dia, mes, ano] = data.split("/").map(Number);
+    const [horas, minutos, segundos] = hora.split(":").map(Number);
+    return new Date(ano, mes - 1, dia, horas, minutos, segundos);
+}
+
 async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
@@ -263,12 +273,16 @@ async function distribuirPedidos() {
         }
 
         const funcionariosSnap = await getDocs(query(funcionariosRef, where("funcionarioLivre", "==", true)));
-        let funcionarios = funcionariosSnap.docs.map(doc => ({
-            id: doc.id,
-            nome: doc.data().nome,
-            livreDesde: converterStringParaData(doc.data().livreDesde)
-        }));
+        let funcionarios = funcionariosSnap.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                nome: data.nome,
+                livreDesde: converterStringParaData(data.livreDesde || "")
+            };
+        });
 
+        // Ordena do mais tempo livre para o menos tempo livre
         funcionarios.sort((a, b) => a.livreDesde - b.livreDesde);
 
         if (funcionarios.length === 0) {
@@ -277,54 +291,61 @@ async function distribuirPedidos() {
         }
 
         const pedidosSnap = await getDocs(query(pedidosRef));
-        let pedidos = pedidosSnap.docs.map(doc => ({
-            id: doc.id,
-            shortReference: doc.data().id,
-            produtoId: doc.data().id,
-            jaDistribuido: doc.data().jaDistribuido || false
-        }));
+        let pedidos = pedidosSnap.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                shortReference: data.id,
+                produtoId: data.id,
+                jaDistribuido: data.jaDistribuido || false
+            };
+        });
 
         if (pedidos.length === 0) {
             console.log("Nenhum pedido novo encontrado.");
             return;
         }
 
-        // Ordenação dos pedidos por shortReference como números
+        // Ordena os pedidos pelo ID (numérico)
         pedidos.sort((a, b) => parseInt(a.shortReference, 10) - parseInt(b.shortReference, 10));
 
         const batch = writeBatch(db);
-
         let pedidosIndex = 0;
+
         for (let i = 0; i < funcionarios.length; i++) {
-            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
+            if (pedidosIndex >= pedidos.length) break;
 
             let funcionario = funcionarios[i];
 
+            // Pula os pedidos já distribuídos
             while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
-                pedidosIndex++; // Pula pedidos já distribuídos
+                pedidosIndex++;
             }
 
-            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
+            if (pedidosIndex >= pedidos.length) break;
 
             let pedido = pedidos[pedidosIndex];
-            let pedidoRef = doc(db, "pedidosNovos", pedido.id);
+            if (pedido.jaDistribuido) continue;
 
-            // Atribui o pedido ao funcionário
+            let pedidoRef = doc(db, "pedidosNovos", pedido.id);
+            let funcionarioRef = doc(db, "funcionarios", funcionario.id);
+
+            // Atualiza o pedido com o funcionário atribuído
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
                 statusDoPedido: 2,
                 jaDistribuido: true
             });
 
-            batch.update(doc(db, "funcionarios", funcionario.id), {
+            // Marca o funcionário como ocupado
+            batch.update(funcionarioRef, {
                 funcionarioLivre: false,
                 produtoId: pedido.produtoId,
                 livreDesde: null
             });
 
             console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
-
-            pedidosIndex++; // Passa para o próximo pedido
+            pedidosIndex++;
         }
 
         await batch.commit();
@@ -335,14 +356,6 @@ async function distribuirPedidos() {
     }
 }
 
-// Converte "DD/MM/YYYY - HH:MM:SS" para Date
-function converterStringParaData(dataString) {
-    if (!dataString) return new Date(0);
-    const [data, hora] = dataString.split(" - ");
-    const [dia, mes, ano] = data.split("/").map(Number);
-    const [horas, minutos, segundos] = hora.split(":").map(Number);
-    return new Date(ano, mes - 1, dia, horas, minutos, segundos);
-}
 
 async function iniciarProcesso() {
     await atualizarContagemFuncionarios();

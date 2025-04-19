@@ -105,7 +105,7 @@
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `${token}`,
+                    'Authorization': `${sandboxToken}`,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 }
@@ -127,86 +127,77 @@
 
     // Função para enviar o pedido como "pronto" para a API
     async function finalizarPedido(orderId) {
-        if (!orderId) {
-            console.error("Erro: ID do pedido não encontrado.");
+    if (!orderId) {
+        console.error("Erro: ID do pedido não encontrado.");
+        return;
+    }
+
+    const url = `https://api-parceiros.anota.ai/partnerauth/order/ready/${orderId}`;
+    const pedidosNovosRef = collection(db, "pedidosNovos");
+
+    try {
+        const q = query(pedidosNovosRef, where("id", "==", orderId));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            console.log("Pedido já foi processado ou não existe.");
             return;
         }
 
-        const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c'; // Token da API
+        for (const docSnap of querySnapshot.docs) {
+            const pedidoData = docSnap.data();
+            const pedidoId = docSnap.id;
 
-        const url = `https://api-parceiros.anota.ai/partnerauth/order/ready/${orderId}`;
-
-        const pedidosNovosRef = collection(db, "pedidosNovos");
-        const pedidosConcluidosRef = collection(db, "pedidosConcluidos");
-
-        try {
-            const q = query(pedidosNovosRef, where("id", "==", orderId));
-            const querySnapshot = await getDocs(q);
-
-            if (querySnapshot.empty) {
-                console.log("Nenhum documento encontrado com o id fornecido.");
-                return;
-            }
-
-            for (const docSnap of querySnapshot.docs) {
-                const pedidoData = docSnap.data();
-                const pedidoId = docSnap.id; // ID original no Firestore
-
-                console.log(`Pedido encontrado: ${pedidoId}`, pedidoData);
-
-                try {
-                    // Criamos a referência correta para manter o mesmo ID
-                    const pedidoConcluidoRef = doc(db, "pedidosConcluidos", pedidoId);
-
-                    // Adiciona na nova coleção com o mesmo ID
-                    await setDoc(pedidoConcluidoRef, {
-                        ...pedidoData,
-                        atendidoPor: "funcionario1",
-                        concluidoEm: new Date().toISOString()
-                    });
-
-                    console.log(`✅ Pedido ${orderId} movido para pedidosConcluidos com ID ${pedidoId}.`);
-
-                    // Remove da coleção pedidosNovos
-                    await deleteDoc(doc(db, "pedidosNovos", pedidoId));
-                    console.log(`✅ Pedido ${orderId} removido de pedidosNovos.`);
-                } catch (error) {
-                    console.error("❌ Erro ao mover o pedido para pedidosConcluidos:", error);
-                }
-            }
-        } catch (error) {
-            console.error("❌ Erro ao buscar o pedido:", error);
-        }
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `${token}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({})
+            // 1. Move para pedidosConcluidos
+            const pedidoConcluidoRef = doc(db, "pedidosConcluidos", pedidoId);
+            await setDoc(pedidoConcluidoRef, {
+                ...pedidoData,
+                atendidoPor: "funcionario1",
+                concluidoEm: new Date().toISOString()
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                console.log("Pedido finalizado:", data);
-            } else {
-                console.error("Erro ao finalizar o pedido:", response.status, response.statusText);
-                alert("Erro ao finalizar o pedido. Tente novamente.");
+            // 2. Remove de pedidosNovos
+            await deleteDoc(doc(db, "pedidosNovos", pedidoId));
+
+            // 3. Libera o funcionário
+            const funcionarioRef = doc(db, "funcionarios", "funcionario1");
+            await updateDoc(funcionarioRef, {
+                funcionarioLivre: true,
+                produtoId: '',
+                livreDesde: new Date().toLocaleString("pt-BR")
+            });
+
+            // 4. Chama a API depois de tudo estar limpo
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `${sandboxToken}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("Pedido finalizado com sucesso na API:", data);
+                } else {
+                    console.error("Erro ao finalizar o pedido na API:", response.status, response.statusText);
+                }
+            } catch (apiError) {
+                console.error("Erro na requisição à API:", apiError);
             }
-        } catch (error) {
-            console.error("Erro ao chamar a API:", error);
-            alert("Erro ao finalizar o pedido. Tente novamente.");
+
+            // 5. Atualiza a tela
+            pedidoContainer.innerHTML = '<p>Pedido concluído com sucesso! Aguarde o próximo pedido</p>';
+            setTimeout(buscarPedidoId, 2000);
         }
 
-    pedidoContainer.innerHTML = '<p>Pedido concluído com sucesso! Aguarde o próximo pedido</p>';
-await updateFuncionario(); // Aguarda a atualização do funcionário
-setTimeout(buscarPedidoId, 2000); // Dá um tempo para o Firestore processar antes de tentar buscar outro pedido
+    } catch (error) {
+        console.error("Erro no processo de finalização do pedido:", error);
+    }
 }
-
-
 
     // Função para exibir os detalhes do pedido na interface
     async function exibirDetalhesDoPedido(detalhesPedido) {
