@@ -158,7 +158,6 @@
 
         const pedidoRef = doc(db, "pedidosNovos", idFinal);
         await setDoc(pedidoRef, {
-            statusDoPedido: 1,
             id: pedido.detalhes.id,
             funcionarioAT: 0,
         }, { merge: true }); // Usa merge para não substituir pedidos antigos
@@ -244,23 +243,18 @@
     });
 }
 
-// Converte "DD/MM/YYYY - HH:MM:SS" para Date
-function converterStringParaData(dataString) {
-    if (!dataString || typeof dataString !== "string") return new Date(0);
-    const [data, hora] = dataString.split(" - ");
-    if (!data || !hora) return new Date(0);
-    const [dia, mes, ano] = data.split("/").map(Number);
-    const [horas, minutos, segundos] = hora.split(":").map(Number);
-    return new Date(ano, mes - 1, dia, horas, minutos, segundos);
-}
-
 async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
     const configDocRef = doc(db, "config", "funcionariosLivres");
+    const ultimoIdRef = doc(db, "config", "ultimoId");
 
     try {
-        const configSnap = await getDoc(configDocRef);
+        const [configSnap, ultimoIdSnap] = await Promise.all([
+            getDoc(configDocRef),
+            getDoc(ultimoIdRef)
+        ]);
+
         if (!configSnap.exists()) {
             console.error("Configuração de funcionários livres não encontrada.");
             return;
@@ -273,16 +267,12 @@ async function distribuirPedidos() {
         }
 
         const funcionariosSnap = await getDocs(query(funcionariosRef, where("funcionarioLivre", "==", true)));
-        let funcionarios = funcionariosSnap.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                nome: data.nome,
-                livreDesde: converterStringParaData(data.livreDesde || "")
-            };
-        });
+        let funcionarios = funcionariosSnap.docs.map(doc => ({
+            id: doc.id,
+            nome: doc.data().nome,
+            livreDesde: converterStringParaData(doc.data().livreDesde)
+        }));
 
-        // Ordena do mais tempo livre para o menos tempo livre
         funcionarios.sort((a, b) => a.livreDesde - b.livreDesde);
 
         if (funcionarios.length === 0) {
@@ -291,33 +281,34 @@ async function distribuirPedidos() {
         }
 
         const pedidosSnap = await getDocs(query(pedidosRef));
-        let pedidos = pedidosSnap.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                shortReference: data.id,
-                produtoId: data.id,
-                jaDistribuido: data.jaDistribuido || false
-            };
+        const ultimoId = ultimoIdSnap.exists() ? ultimoIdSnap.data().ultimoId || "000" : "000";
+
+        let pedidos = pedidosSnap.docs.map(doc => ({
+            id: doc.id,
+            shortReference: doc.id,
+            produtoId: doc.data().id,
+            jaDistribuido: doc.data().jaDistribuido || false
+        })).filter(pedido => {
+            return !pedido.jaDistribuido && pedido.shortReference > ultimoId;
         });
 
         if (pedidos.length === 0) {
-            console.log("Nenhum pedido novo encontrado.");
+            console.log("Nenhum pedido novo encontrado após o último ID:", ultimoId);
             return;
         }
 
-        // Ordena os pedidos pelo ID (numérico)
-        pedidos.sort((a, b) => parseInt(a.shortReference, 10) - parseInt(b.shortReference, 10));
+        // Ordenar os pedidos por shortReference (lexicograficamente funciona com 0 à esquerda)
+        pedidos.sort((a, b) => a.shortReference.localeCompare(b.shortReference));
 
         const batch = writeBatch(db);
-        let pedidosIndex = 0;
+        let pedidosDistribuidos = [];
 
+        let pedidosIndex = 0;
         for (let i = 0; i < funcionarios.length; i++) {
             if (pedidosIndex >= pedidos.length) break;
 
             let funcionario = funcionarios[i];
 
-            // Pula os pedidos já distribuídos
             while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
                 pedidosIndex++;
             }
@@ -325,37 +316,49 @@ async function distribuirPedidos() {
             if (pedidosIndex >= pedidos.length) break;
 
             let pedido = pedidos[pedidosIndex];
-            if (pedido.jaDistribuido) continue;
-
             let pedidoRef = doc(db, "pedidosNovos", pedido.id);
-            let funcionarioRef = doc(db, "funcionarios", funcionario.id);
 
-            // Atualiza o pedido com o funcionário atribuído
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
-                statusDoPedido: 2,
                 jaDistribuido: true
             });
 
-            // Marca o funcionário como ocupado
-            batch.update(funcionarioRef, {
+            batch.update(doc(db, "funcionarios", funcionario.id), {
                 funcionarioLivre: false,
                 produtoId: pedido.produtoId,
                 livreDesde: null
             });
 
-            console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
+            pedidosDistribuidos.push(pedido.shortReference);
+
+            console.log(`Pedido ${pedido.shortReference} atribuído a ${funcionario.nome}`);
             pedidosIndex++;
         }
 
         await batch.commit();
         console.log("Distribuição de pedidos concluída!");
 
+        // Atualizar config/ultimoId com o maior shortReference distribuído
+        if (pedidosDistribuidos.length > 0) {
+            const novoUltimoId = pedidosDistribuidos[pedidosDistribuidos.length - 1];
+            await setDoc(ultimoIdRef, { ultimoId: novoUltimoId }, { merge: true });
+            console.log("Atualizado último ID para:", novoUltimoId);
+        }
+
     } catch (error) {
         console.error("Erro ao distribuir pedidos:", error);
     }
 }
 
+
+// Converte "DD/MM/YYYY - HH:MM:SS" para Date
+function converterStringParaData(dataString) {
+    if (!dataString) return new Date(0);
+    const [data, hora] = dataString.split(" - ");
+    const [dia, mes, ano] = data.split("/").map(Number);
+    const [horas, minutos, segundos] = hora.split(":").map(Number);
+    return new Date(ano, mes - 1, dia, horas, minutos, segundos);
+}
 
 async function iniciarProcesso() {
     await atualizarContagemFuncionarios();
