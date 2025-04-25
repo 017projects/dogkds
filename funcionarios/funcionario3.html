@@ -4,25 +4,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pedido - Funcionario 3</title>
+  <title>Pedido - Funcionário 2</title>
   <link rel="stylesheet" href="funcionario.css">
 </head>
 <body>
-    <div class="ultimopedido">Contador do ultimo pedido:</div>
-    <div class="container">
-  
-      <h1>03</h1>
-  
-      <div class="pedido"></div> <!-- Aqui exibe o pedido -->
-      
-      <!-- Botão para finalizar o pedido -->
-      <button id="finalizarPedido">Finalizar Pedido</button>
-    </div>
-  
-    <div class="blankspaces"></div>
-  
-    <button id="logoutButton" class="logout">Logout</button>
-  
+  <div class="container">
+
+    <h1>03</h1>
+
+    <div class="pedido"></div> <!-- Aqui exibe o pedido -->
+    
+    <!-- Botão para finalizar o pedido -->
+    <button id="finalizarPedido">Finalizar Pedido</button>
+  </div>
+
   <button id="logoutButton" class="logout">Logout</button>
 
   <script type="module">
@@ -45,7 +40,6 @@
     // Inicializa o Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    
     // Seleciona a div onde o pedido será exibido
     const pedidoContainer = document.querySelector('.pedido');
     
@@ -54,7 +48,8 @@
 
     // Função para buscar o ID do pedido no Firestore
     async function buscarPedidoId() {
-        console.log("Iniciando busca de pedidos para o Funcionario 3...");
+
+        console.log("Iniciando busca de pedidos para o Funcionário 2...");
 
         try {
             // Buscar o documento do funcionário na coleção "funcionarios"
@@ -112,7 +107,7 @@
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `${token}`,
+                    'Authorization': `${sandboxToken}`,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 }
@@ -132,21 +127,6 @@
         }
     }
 
-    async function exibeUltimoPedido(){
-        // pega o ultimo pedido distribuido
-    const ultimoidRefgeral = doc(db, "config", "ultimoId");
-    const ultimoidRefgeralSnap = await getDoc(ultimoidRefgeral);
-    const ultimoidRefgeraldata = ultimoidRefgeralSnap.data();
-    const ultimoidEx = ultimoidRefgeraldata.ultimoId
-
-    console.log('ultimo id:', ultimoidEx)
-
-    document.querySelector('.ultimopedido').innerHTML = `
-        <h1> <strong> Ultimo pedido geral: </strong> &nbsp </h1> 
-        <h1>${ultimoidEx}</h1> 
-    `
-    } 
-
     // Função para enviar o pedido como "pronto" para a API
     async function finalizarPedido(orderId) {
     if (!orderId) {
@@ -156,9 +136,7 @@
 
     const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZHBhcnRuZXIiOiI2N2FlYWFkMGE5YTBhNTAwMTk4ZGU0NDMiLCJpZHBhZ2UiOiI2NTRlMmEyNDY2ZjBkYzAwMTkzY2M3NjgifQ.Zw7tLxJfAakrZaweDaly1iWjXWYs1wZ73nxKW7TFO9c';
     const url = `https://api-parceiros.anota.ai/partnerauth/order/ready/${orderId}`;
-
     const pedidosNovosRef = collection(db, "pedidosNovos");
-    const pedidosConcluidosRef = collection(db, "pedidosConcluidos");
 
     try {
         const q = query(pedidosNovosRef, where("id", "==", orderId));
@@ -170,33 +148,26 @@
         }
 
         for (const docSnap of querySnapshot.docs) {
-            const pedidoData = docSnap.data();
             const pedidoId = docSnap.id;
 
-            try {
-                const pedidoConcluidoRef = doc(db, "pedidosConcluidos", pedidoId);
-                await setDoc(pedidoConcluidoRef, {
-                    ...pedidoData,
-                    atendidoPor: "funcionario3",
-                    concluidoEm: new Date().toISOString()
-                });
+            await updateDoc(doc(db, "pedidosNovos", pedidoId), {
+                emFinalizacao: true,
+                atendidoPor: "funcionario3",
+                concluidoEm: new Date().toISOString()
+            });
 
-                console.log(`✅ Pedido ${orderId} movido para pedidosConcluidos com ID ${pedidoId}.`);
-                await deleteDoc(doc(db, "pedidosNovos", pedidoId));
-                console.log(`✅ Pedido ${orderId} removido de pedidosNovos.`);
-            } catch (error) {
-                console.error("❌ Erro ao mover o pedido para pedidosConcluidos:", error);
-            }
+            console.log(`✅ Pedido ${orderId} atualizado em pedidosNovos com status de finalizado.`);
         }
     } catch (error) {
-        console.error("❌ Erro ao buscar o pedido:", error);
+        console.error("❌ Erro ao atualizar o pedido:", error);
+        return;
     }
 
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': `${token}`,
+                'Authorization': `${sandboxToken}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
@@ -205,13 +176,13 @@
 
         if (response.ok) {
             const data = await response.json();
-            console.log("Pedido finalizado:", data);
+            console.log("Pedido finalizado na API:", data);
 
             pedidoContainer.innerHTML = '<p>Pedido concluído com sucesso! Aguarde o próximo pedido</p>';
             await updateFuncionario();
             setTimeout(buscarPedidoId, 2000);
         } else {
-            console.error("Erro ao finalizar o pedido:", response.status, response.statusText);
+            console.error("Erro ao finalizar o pedido na API:", response.status, response.statusText);
             alert("Erro ao enviar dados para a API");
         }
     } catch (error) {
@@ -234,7 +205,6 @@
         // Lista de palavras-chave para identificar refrigerantes
         const itensOcultos = ["refrigerante", "coca-cola", "guaraná", "fanta", "sprite", "guarana", "itubaina", "h2o", 'sukita', 'schweppes', 'agua', 'chocolate', 'honey', 'coca'];
 
-        exibeUltimoPedido();
 
         // Filtra os itens que não devem ser exibidos
         const itensFiltrados = items.filter(item => 

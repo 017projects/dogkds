@@ -123,7 +123,7 @@ async function buscarPedidoFuncionario(funcionarioId) {
     const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Authorization': `${token}`,
+                'Authorization': `${sandboxToken}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }

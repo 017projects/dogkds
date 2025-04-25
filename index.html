@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -108,7 +109,7 @@
                 const response = await fetch(API_URL, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${API_TOKEN}`,
+                        'Authorization': `${sandboxToken}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
@@ -142,26 +143,42 @@
 
     // Inserir os novos pedidos no Firestore sem apagar os antigos
     for (const pedido of pedidosComDetalhes) {
-        const defId = pedido.detalhes.shortReference.toString()
-        var idFinal = 0
+    const defId = pedido.detalhes.shortReference.toString();
+    var idFinal = 0
 
         if(defId.length === 1){
-            var idFinal = defId.padStart(3, '0')
+            idFinal = defId.padStart(3, '0')
             console.log(idFinal)
         } else if (defId.length === 2){
-            var idFinal = defId.padStart(3, '0')
+            idFinal = defId.padStart(3, '0')
             console.log(idFinal)
         } else if (defId.length >= 3 ){
-            var idFinal = defId
+            idFinal = defId
             console.log(idFinal)
         }
 
-        const pedidoRef = doc(db, "pedidosNovos", idFinal);
-        await setDoc(pedidoRef, {
-            id: pedido.detalhes.id,
-            funcionarioAT: 0,
-        }, { merge: true }); // Usa merge para não substituir pedidos antigos
+
+    const pedidoRef = doc(db, "pedidosNovos", idFinal);
+
+    // Recupera o documento atual se existir
+    const pedidoSnap = await getDoc(pedidoRef);
+    let dadosAntigos = {};
+    
+    if (pedidoSnap.exists()) {
+        dadosAntigos = pedidoSnap.data();
     }
+
+    // Monta os dados novos com preservação dos campos antigos
+    const dadosAtualizados = {
+        statusDoPedido: 1,
+        id: pedido.detalhes.id,
+        funcionarioAT: dadosAntigos.funcionarioAT || 0,
+        jaDistribuido: dadosAntigos.jaDistribuido || false,
+        emFinalizacao: dadosAntigos.emFinalizacao || false
+    };
+
+    await setDoc(pedidoRef, dadosAtualizados, { merge: true });
+}
 
     console.log("Novos pedidos foram adicionados ao Firestore sem apagar os antigos!");
 }
@@ -171,7 +188,7 @@
                 const response = await fetch(API_URL_DETALHES, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${API_TOKEN}`,
+                        'Authorization': `${sandboxToken}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
@@ -247,14 +264,9 @@ async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
     const configDocRef = doc(db, "config", "funcionariosLivres");
-    const ultimoIdRef = doc(db, "config", "ultimoId");
 
     try {
-        const [configSnap, ultimoIdSnap] = await Promise.all([
-            getDoc(configDocRef),
-            getDoc(ultimoIdRef)
-        ]);
-
+        const configSnap = await getDoc(configDocRef);
         if (!configSnap.exists()) {
             console.error("Configuração de funcionários livres não encontrada.");
             return;
@@ -281,45 +293,45 @@ async function distribuirPedidos() {
         }
 
         const pedidosSnap = await getDocs(query(pedidosRef));
-        const ultimoId = ultimoIdSnap.exists() ? ultimoIdSnap.data().ultimoId || "000" : "000";
-
         let pedidos = pedidosSnap.docs.map(doc => ({
             id: doc.id,
-            shortReference: doc.id,
+            shortReference: doc.data().id,
             produtoId: doc.data().id,
-            jaDistribuido: doc.data().jaDistribuido || false
-        })).filter(pedido => {
-            return !pedido.jaDistribuido && pedido.shortReference > ultimoId;
-        });
+            jaDistribuido: doc.data().jaDistribuido || false,
+            emFinalizacao: doc.data().emFinalizacao || false
+        }));
+
+        pedidos = pedidos.filter(p => !p.jaDistribuido && !p.emFinalizacao);
 
         if (pedidos.length === 0) {
-            console.log("Nenhum pedido novo encontrado após o último ID:", ultimoId);
+            console.log("Nenhum pedido novo encontrado.");
             return;
         }
 
-        // Ordenar os pedidos por shortReference (lexicograficamente funciona com 0 à esquerda)
-        pedidos.sort((a, b) => a.shortReference.localeCompare(b.shortReference));
+        // Ordenação dos pedidos por shortReference como números
+        pedidos.sort((a, b) => parseInt(a.shortReference, 10) - parseInt(b.shortReference, 10));
 
         const batch = writeBatch(db);
-        let pedidosDistribuidos = [];
 
         let pedidosIndex = 0;
         for (let i = 0; i < funcionarios.length; i++) {
-            if (pedidosIndex >= pedidos.length) break;
+            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
 
             let funcionario = funcionarios[i];
 
             while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
-                pedidosIndex++;
+                pedidosIndex++; // Pula pedidos já distribuídos
             }
 
-            if (pedidosIndex >= pedidos.length) break;
+            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
 
             let pedido = pedidos[pedidosIndex];
             let pedidoRef = doc(db, "pedidosNovos", pedido.id);
 
+            // Atribui o pedido ao funcionário
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
+                statusDoPedido: 2,
                 jaDistribuido: true
             });
 
@@ -329,27 +341,18 @@ async function distribuirPedidos() {
                 livreDesde: null
             });
 
-            pedidosDistribuidos.push(pedido.shortReference);
+            console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
 
-            console.log(`Pedido ${pedido.shortReference} atribuído a ${funcionario.nome}`);
-            pedidosIndex++;
+            pedidosIndex++; // Passa para o próximo pedido
         }
 
         await batch.commit();
         console.log("Distribuição de pedidos concluída!");
 
-        // Atualizar config/ultimoId com o maior shortReference distribuído
-        if (pedidosDistribuidos.length > 0) {
-            const novoUltimoId = pedidosDistribuidos[pedidosDistribuidos.length - 1];
-            await setDoc(ultimoIdRef, { ultimoId: novoUltimoId }, { merge: true });
-            console.log("Atualizado último ID para:", novoUltimoId);
-        }
-
     } catch (error) {
         console.error("Erro ao distribuir pedidos:", error);
     }
 }
-
 
 // Converte "DD/MM/YYYY - HH:MM:SS" para Date
 function converterStringParaData(dataString) {
