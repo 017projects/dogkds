@@ -26,7 +26,7 @@
         }
         .pedido-card {
             background: #fff;
-            border-left: 5px solid #f1a635;
+            border-left: 5px solid #333;
             padding: 15px;
             margin-bottom: 10px;
             border-radius: 8px;
@@ -34,7 +34,7 @@
         }
         .pedido-card h3 {
             margin: 0 0 10px;
-            color: #f1a635;
+            color: #565656;
         }
         .pedido-itens ul {
             list-style-type: none;
@@ -109,7 +109,7 @@
                 const response = await fetch(API_URL, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${sandboxToken}`,
+                        'Authorization': `${API_TOKEN}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
@@ -188,7 +188,7 @@
                 const response = await fetch(API_URL_DETALHES, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `${sandboxToken}`,
+                        'Authorization': `${API_TOKEN}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
@@ -246,16 +246,20 @@
                     <div class="pedido-itens">
                         <ul>${listaItens}</ul>
                     </div>
-                    <p><strong>Status:</strong> ${pedido.jaDistribuido ? 'Em produção 🧑‍🍳' : 'Aguardando 🕒'}</p>
-                    ${detalhesPedido.observation ? `<p><b>Observação adicional:</b> ${detalhesPedido.observation}</p>` : ''}
+                    <p><strong>Status:</strong> ${pedido.emFinalizacao ? `Pedido Finalizado!` : `${pedido.jaDistribuido ? 'Em produção 🧑‍🍳' : 'Aguardando 🕒'}`}</p>
+                    ${detalhesPedido.observation ? `<p><b>Observação adicional:</b> ${detalhesPedido.observation}</p>` : ''} ${pedido.atendidoPor ? `<strong>Finalizado por: </strong>${pedido.atendidoPor}` : ''} ${pedido.concluidoEm ? `<strong>, em </strong>${pedido.concluidoEm}` : ''} 
                 `;
                 pedidosContainer.appendChild(pedidoDiv);
 
-                if (pedido.jaDistribuido === true) {
-    pedidoDiv.querySelector('h3').style.color = 'green';
-    pedidoDiv.style.borderColor = 'green';
-}
+                if (pedido.jaDistribuido === true && pedido.emFinalizacao === false) {
+                        pedidoDiv.querySelector('h3').style.color = '#f1a635';
+                        pedidoDiv.style.borderColor = '#f1a635';
+            }   else if (pedido.jaDistribuido === true && pedido.emFinalizacao === true){
+                        pedidoDiv.querySelector('h3').style.color = 'green';
+                        pedidoDiv.style.borderColor = 'green';
             }
+            
+        }
         }
     });
 }
