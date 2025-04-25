@@ -51,6 +51,12 @@
 </head>
 <body>
     <div class="container">
+        <input 
+    type="text" 
+    id="barra-pesquisa" 
+    placeholder="Buscar por número do pedido ou nome/ID do funcionário" 
+    style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 5px;">
+
         <h1>Pedidos</h1>
         <div id="pedidos-container">Carregando pedidos...</div>
     </div>
@@ -204,7 +210,7 @@
             }
         }
 
-        async function exibirPedidosDetalhados() {
+        async function exibirPedidosDetalhados(filtro = "") {
     const pedidosRef = collection(db, "pedidosNovos");
     const snapshot = await getDocs(pedidosRef);
     const pedidosContainer = document.getElementById("pedidos-container");
@@ -221,8 +227,18 @@
 
         if (pedido.statusDoPedido === 1) {
             const detalhesPedido = await buscarDetalhesPedido(pedido.id);
-
             if (detalhesPedido) {
+                const shortRef = detalhesPedido.shortReference?.toString().toLowerCase() || "";
+                const funcionario = pedido.atendidoPor?.toString().toLowerCase() || "";
+
+                if (
+                    filtro &&
+                    !shortRef.includes(filtro) &&
+                    !funcionario.includes(filtro)
+                ) {
+                    return; // pula este se não casar com o filtro
+                }
+
                 const pedidoDiv = document.createElement("div");
                 pedidoDiv.classList.add("pedido-card");
 
@@ -252,17 +268,24 @@
                 pedidosContainer.appendChild(pedidoDiv);
 
                 if (pedido.jaDistribuido === true && pedido.emFinalizacao === false) {
-                        pedidoDiv.querySelector('h3').style.color = '#f1a635';
-                        pedidoDiv.style.borderColor = '#f1a635';
-            }   else if (pedido.jaDistribuido === true && pedido.emFinalizacao === true){
-                        pedidoDiv.querySelector('h3').style.color = 'green';
-                        pedidoDiv.style.borderColor = 'green';
+                    pedidoDiv.querySelector('h3').style.color = '#f1a635';
+                    pedidoDiv.style.borderColor = '#f1a635';
+                } else if (pedido.jaDistribuido === true && pedido.emFinalizacao === true) {
+                    pedidoDiv.querySelector('h3').style.color = 'green';
+                    pedidoDiv.style.borderColor = 'green';
+                }
             }
-            
-        }
         }
     });
 }
+
+const barraPesquisa = document.getElementById("barra-pesquisa");
+
+barraPesquisa.addEventListener("input", () => {
+    const filtro = barraPesquisa.value.trim().toLowerCase();
+    exibirPedidosDetalhados(filtro);
+});
+
 
 async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
@@ -380,7 +403,7 @@ iniciarProcesso();
 
 
 setInterval(() => {
-    iniciarProcesso();
+  iniciarProcesso();
 }, 5000);
 
 
