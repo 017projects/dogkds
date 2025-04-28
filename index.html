@@ -176,7 +176,7 @@
 
     // Monta os dados novos com preservação dos campos antigos
     const dadosAtualizados = {
-        statusDoPedido: 1,
+        statusDoPedido: pedido.detalhes.check,
         id: pedido.detalhes.id,
         funcionarioAT: dadosAntigos.funcionarioAT || 0,
         jaDistribuido: dadosAntigos.jaDistribuido || false,
@@ -270,7 +270,10 @@
                 if (pedido.jaDistribuido === true && pedido.emFinalizacao === false) {
                     pedidoDiv.querySelector('h3').style.color = '#f1a635';
                     pedidoDiv.style.borderColor = '#f1a635';
-                } else if (pedido.jaDistribuido === true && pedido.emFinalizacao === true) {
+                }else if(pedido.pedidoCancelado === true){
+                    pedidoDiv.querySelector('h3').style.color = 'red';
+                    pedidoDiv.style.borderColor = 'red';
+                }else if (pedido.emFinalizacao === true) {
                     pedidoDiv.querySelector('h3').style.color = 'green';
                     pedidoDiv.style.borderColor = 'green';
                 }
@@ -359,7 +362,8 @@ async function distribuirPedidos() {
             batch.update(pedidoRef, {
                 funcionarioAT: funcionario.id,
                 statusDoPedido: 2,
-                jaDistribuido: true
+                jaDistribuido: true,
+                horarioAt: new Date().getDate() + '/' + (new Date().getMonth()+1) + '/' + new Date().getFullYear() + ' - ' + new Date().getHours() + ':' + new Date().getMinutes()
             });
 
             batch.update(doc(db, "funcionarios", funcionario.id), {
@@ -402,9 +406,7 @@ async function iniciarProcesso() {
 iniciarProcesso();
 
 
-setInterval(() => {
-  iniciarProcesso();
-}, 5000);
+//setInterval(() => { iniciarProcesso();}, 5000);
 
 
 
