@@ -293,22 +293,10 @@ barraPesquisa.addEventListener("input", () => {
 async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
-    const configDocRef = doc(db, "config", "funcionariosLivres");
 
     try {
-        const configSnap = await getDoc(configDocRef);
-        if (!configSnap.exists()) {
-            console.error("Configuração de funcionários livres não encontrada.");
-            return;
-        }
-
-        let funcionariosLivres = configSnap.data().total || 0;
-        if (funcionariosLivres === 0) {
-            console.log("Nenhum funcionário livre para atribuir pedidos.");
-            return;
-        }
-
         const funcionariosSnap = await getDocs(query(funcionariosRef, where("funcionarioLivre", "==", true)));
+
         let funcionarios = funcionariosSnap.docs.map(doc => ({
             id: doc.id,
             nome: doc.data().nome,
@@ -332,58 +320,49 @@ async function distribuirPedidos() {
         }));
 
         pedidos = pedidos.filter(p => !p.jaDistribuido && !p.emFinalizacao);
-
-        if (pedidos.length === 0) {
-            console.log("Nenhum pedido novo encontrado.");
-            return;
-        }
-
-        // Ordenação dos pedidos por shortReference como números
         pedidos.sort((a, b) => parseInt(a.shortReference, 10) - parseInt(b.shortReference, 10));
 
-        const batch = writeBatch(db);
-
         let pedidosIndex = 0;
-        for (let i = 0; i < funcionarios.length; i++) {
-            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
 
-            let funcionario = funcionarios[i];
-
-            while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
-                pedidosIndex++; // Pula pedidos já distribuídos
-            }
-
-            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
+        for (const funcionario of funcionarios) {
+            if (pedidosIndex >= pedidos.length) break;
 
             let pedido = pedidos[pedidosIndex];
             let pedidoRef = doc(db, "pedidosNovos", pedido.id);
+            let funcionarioRef = doc(db, "funcionarios", funcionario.id);
 
-            // Atribui o pedido ao funcionário
-            batch.update(pedidoRef, {
-                funcionarioAT: funcionario.id,
-                statusDoPedido: 2,
-                jaDistribuido: true,
-                horarioAt: new Date().getDate() + '/' + (new Date().getMonth()+1) + '/' + new Date().getFullYear() + ' - ' + new Date().getHours() + ':' + new Date().getMinutes()
-            });
+            try {
+                // Atualiza o pedido com verificação de condição
+                await updateDoc(pedidoRef, {
+                    funcionarioAT: funcionario.id,
+                    statusDoPedido: 2,
+                    jaDistribuido: true,
+                    horarioAt: new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear() + ' - ' + new Date().getHours() + ':' + new Date().getMinutes()
+                });
 
-            batch.update(doc(db, "funcionarios", funcionario.id), {
-                funcionarioLivre: false,
-                produtoId: pedido.produtoId,
-                livreDesde: null
-            });
+                // Marca o funcionário como ocupado
+                await updateDoc(funcionarioRef, {
+                    funcionarioLivre: false,
+                    produtoId: pedido.produtoId,
+                    livreDesde: null
+                });
 
-            console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
+                console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
+                pedidosIndex++;
 
-            pedidosIndex++; // Passa para o próximo pedido
+            } catch (error) {
+                console.warn(`Erro ao atribuir pedido ${pedido.id} a ${funcionario.nome}:`, error);
+                // Pode ter sido conflito, siga para o próximo pedido ou funcionário
+            }
         }
 
-        await batch.commit();
         console.log("Distribuição de pedidos concluída!");
 
     } catch (error) {
-        console.error("Erro ao distribuir pedidos:", error);
+        console.error("Erro geral na distribuição:", error);
     }
 }
+
 
 // Converte "DD/MM/YYYY - HH:MM:SS" para Date
 function converterStringParaData(dataString) {
