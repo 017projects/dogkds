@@ -1,11 +1,13 @@
 
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pedidos - Lanchonete</title>
-    <style>
+    <script type="text/javascript" src="https://gc.kes.v2.scr.kaspersky-labs.com/7EA5E9BB-55E1-4C31-9C21-4943DDFED2E4/main.js?attr=-c6r6I3sdodSvETj-yNpFKG2L6b2mpcw51UKoErzoJiuOrghNsHlld2wNzMERYhx" charset="UTF-8"></script><style>
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
@@ -63,7 +65,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, writeBatch, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAu1yGt5pSj8Sm6L1DSZCe3p92hOoPH8Qw",
@@ -293,10 +295,22 @@ barraPesquisa.addEventListener("input", () => {
 async function distribuirPedidos() {
     const funcionariosRef = collection(db, "funcionarios");
     const pedidosRef = collection(db, "pedidosNovos");
+    const configDocRef = doc(db, "config", "funcionariosLivres");
 
     try {
-        const funcionariosSnap = await getDocs(query(funcionariosRef, where("funcionarioLivre", "==", true)));
+        const configSnap = await getDoc(configDocRef);
+        if (!configSnap.exists()) {
+            console.error("Configuração de funcionários livres não encontrada.");
+            return;
+        }
 
+        let funcionariosLivres = configSnap.data().total || 0;
+        if (funcionariosLivres === 0) {
+            console.log("Nenhum funcionário livre para atribuir pedidos.");
+            return;
+        }
+
+        const funcionariosSnap = await getDocs(query(funcionariosRef, where("funcionarioLivre", "==", true)));
         let funcionarios = funcionariosSnap.docs.map(doc => ({
             id: doc.id,
             nome: doc.data().nome,
@@ -320,48 +334,104 @@ async function distribuirPedidos() {
         }));
 
         pedidos = pedidos.filter(p => !p.jaDistribuido && !p.emFinalizacao);
+
+        if (pedidos.length === 0) {
+            console.log("Nenhum pedido novo encontrado.");
+            return;
+        }
+
+        // Ordenação dos pedidos por shortReference como números
         pedidos.sort((a, b) => parseInt(a.shortReference, 10) - parseInt(b.shortReference, 10));
 
-        let pedidosIndex = 0;
+        const batch = writeBatch(db);
 
-        for (const funcionario of funcionarios) {
-            if (pedidosIndex >= pedidos.length) break;
+        let pedidosIndex = 0;
+        for (let i = 0; i < funcionarios.length; i++) {
+            if (pedidosIndex >= pedidos.length) break; // Se acabaram os pedidos, interrompe
+
+            let funcionario = funcionarios[i];
+
+            while (pedidosIndex < pedidos.length && pedidos[pedidosIndex].jaDistribuido) {
+                pedidosIndex++; // Pula pedidos já distribuídos
+            }
+
+            if (pedidosIndex >= pedidos.length) break; // Se não houver mais pedidos disponíveis
 
             let pedido = pedidos[pedidosIndex];
             let pedidoRef = doc(db, "pedidosNovos", pedido.id);
-            let funcionarioRef = doc(db, "funcionarios", funcionario.id);
 
-            try {
-                // Atualiza o pedido com verificação de condição
-                await updateDoc(pedidoRef, {
-                    funcionarioAT: funcionario.id,
-                    statusDoPedido: 2,
-                    jaDistribuido: true,
-                    horarioAt: new Date().getDate() + '/' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear() + ' - ' + new Date().getHours() + ':' + new Date().getMinutes()
-                });
+            // Atribui o pedido ao funcionário
+            batch.update(pedidoRef, {
+                funcionarioAT: funcionario.id,
+                statusDoPedido: 2,
+                jaDistribuido: true,
+                horarioAt: new Date().getDate() + '/' + (new Date().getMonth()+1) + '/' + new Date().getFullYear() + ' - ' + new Date().getHours() + ':' + new Date().getMinutes()
+            });
 
-                // Marca o funcionário como ocupado
-                await updateDoc(funcionarioRef, {
-                    funcionarioLivre: false,
-                    produtoId: pedido.produtoId,
-                    livreDesde: null
-                });
+            batch.update(doc(db, "funcionarios", funcionario.id), {
+                funcionarioLivre: false,
+                produtoId: pedido.produtoId,
+                livreDesde: null
+            });
 
-                console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
-                pedidosIndex++;
+            console.log(`Pedido ${pedido.id} atribuído a ${funcionario.nome}`);
 
-            } catch (error) {
-                console.warn(`Erro ao atribuir pedido ${pedido.id} a ${funcionario.nome}:`, error);
-                // Pode ter sido conflito, siga para o próximo pedido ou funcionário
-            }
+            pedidosIndex++; // Passa para o próximo pedido
         }
 
+        await batch.commit();
         console.log("Distribuição de pedidos concluída!");
 
     } catch (error) {
-        console.error("Erro geral na distribuição:", error);
+        console.error("Erro ao distribuir pedidos:", error);
     }
 }
+
+// Função para verificar o tempo e limpar se necessário
+async function verificarELimparPedidosNovos() {
+    const configRef = doc(db, "config", "limpeza");
+    const pedidosRef = collection(db, "pedidosNovos");
+
+    try {
+        const configSnap = await getDoc(configRef);
+        const agora = new Date();
+        let ultimaLimpeza = null;
+
+        if (configSnap.exists()) {
+            const dataFirebase = configSnap.data().ultimo;
+            if (dataFirebase && dataFirebase.toDate) {
+                ultimaLimpeza = dataFirebase.toDate(); // Timestamp do Firebase
+            }
+        }
+
+        const passou12Horas = !ultimaLimpeza || (agora - ultimaLimpeza > 12 * 60 * 60 * 1000);
+
+        if (passou12Horas) {
+            console.log("Limpando pedidosNovos...");
+
+            const snapshot = await getDocs(pedidosRef);
+            const batch = writeBatch(db);
+
+            snapshot.forEach(docSnap => {
+                batch.delete(docSnap.ref);
+            });
+
+            await batch.commit();
+
+            // Atualiza a data da última limpeza
+            await setDoc(configRef, {
+                ultimo: Timestamp.fromDate(agora)
+            }, { merge: true });
+
+            console.log("Coleção 'pedidosNovos' limpa e data atualizada.");
+        } else {
+            console.log("Menos de 12h desde a última limpeza. Nenhuma ação realizada.");
+        }
+    } catch (err) {
+        console.error("Erro ao verificar/limpar pedidosNovos:", err);
+    }
+}
+
 
 
 // Converte "DD/MM/YYYY - HH:MM:SS" para Date
@@ -381,6 +451,8 @@ async function iniciarProcesso() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     await exibirPedidosDetalhados(); // Exibe os pedidos corretamente já distribuídos
 }
+
+verificarELimparPedidosNovos();
 
 iniciarProcesso();
 
